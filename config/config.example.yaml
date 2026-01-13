@@ -1,0 +1,67 @@
+# ATIP Configuration Example
+# Copy this to config.yaml and customize
+
+collectors:
+  # NVD (National Vulnerability Database) Collector
+  nvd:
+    enabled: true
+    api_key: null  # Optional: Get from https://nvd.nist.gov/developers/request-an-api-key
+    days_back: 7  # How many days back to collect CVEs
+    interval_seconds: 21600  # Run every 6 hours
+
+  # OSINT (Open Source Intelligence) Collector
+  osint:
+    enabled: true
+    feeds:
+      - abuse.ch
+      - threatfox
+      - urlhaus
+    interval_seconds: 14400  # Run every 4 hours
+
+# Processing Pipeline Configuration
+pipeline:
+  min_priority: 0.2  # Filter out threats with priority below this (0.0-1.0)
+  max_age_days: 90  # Filter out threats older than this many days
+
+# Storage Configuration
+storage:
+  type: sqlite  # sqlite, postgresql
+  path: atip.db  # For SQLite
+  # connection_string: postgresql://user:pass@localhost/atip  # For PostgreSQL
+
+# API Server Configuration
+api:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+  cors_enabled: true
+  # auth:
+  #   enabled: true
+  #   api_keys:
+  #     - your-secret-api-key-here
+
+# Logging Configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: null  # Set to a file path to enable file logging
+
+# Report Generation
+reports:
+  output_dir: reports
+  formats:
+    - markdown
+    - json
+
+# Asset Inventory (for contextual analysis)
+# assets:
+#   - name: web-servers
+#     technologies:
+#       - nginx
+#       - apache
+#     exposure: internet
+#   - name: databases
+#     technologies:
+#       - postgresql
+#       - mysql
+#     exposure: internal
