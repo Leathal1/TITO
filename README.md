@@ -4,7 +4,14 @@
 
 ## The Vision
 
-ATIP is a threat intelligence platform built on the STRIDE-LM framework. It transforms raw threat data into actionable intelligence that defenders can use to make critical decisions under pressure.
+ATIP is a threat intelligence platform built in **pure Go** with the STRIDE-LM framework. It transforms raw threat data into actionable intelligence that defenders can use to make critical decisions under pressure.
+
+**Built with Go for:**
+- ⚡ **Performance** - Compiled, concurrent, blazing fast
+- 📦 **Easy Deployment** - Single binary, zero dependencies
+- 🔄 **Concurrency** - Goroutines for parallel collection and processing
+- 🛡️ **Type Safety** - Strong typing for reliable data models
+- 🚀 **Production Ready** - Battle-tested runtime and standard library
 
 ### Design Philosophy
 
@@ -82,54 +89,63 @@ ATIP follows the intelligence lifecycle:
 ## Project Structure
 
 ```
-atip/
-├── collectors/           # Intelligence collection modules
-│   ├── cve/             # CVE/vulnerability feeds (NVD, etc.)
-│   ├── osint/           # OSINT threat feeds
-│   ├── malware/         # Malware signatures and IOCs
-│   └── exploits/        # Exploit databases
-├── core/                # Core intelligence engine
-│   ├── models/          # Data models (threats, indicators, context)
-│   ├── pipeline/        # Processing pipeline (normalize, enrich, dedupe)
-│   ├── stride_lm/       # STRIDE-LM classification engine
-│   └── enrichment/      # Context enrichment modules
-├── analysis/            # Analysis engines
-│   ├── correlation/     # Threat correlation and pattern matching
-│   ├── scoring/         # Priority scoring algorithms
-│   └── context/         # Contextual analysis (asset mapping, etc.)
-├── dissemination/       # Output layer
-│   ├── api/             # REST API for integration
-│   ├── reports/         # Report generation (human-readable)
-│   └── alerts/          # Alerting and notification system
-├── storage/             # Data persistence
-│   ├── database/        # Database models and migrations
-│   └── cache/           # Caching layer for performance
-├── config/              # Configuration management
-├── cli/                 # Command-line interface
-└── tests/              # Comprehensive test suite
+.
+├── cmd/
+│   └── atip/                  # CLI application entry point
+├── pkg/
+│   ├── collectors/            # Intelligence collectors
+│   │   ├── collector.go       # Base collector interface
+│   │   └── nvd.go             # NVD CVE collector
+│   ├── models/                # Data models
+│   │   └── threat.go          # Threat, Indicator, Context models
+│   ├── stridelm/              # STRIDE-LM classification
+│   │   ├── categories.go      # Category definitions
+│   │   └── classifier.go      # Classification engine
+│   ├── pipeline/              # Processing pipeline
+│   │   └── processor.go       # Multi-stage processor
+│   ├── reports/               # Report generation
+│   │   └── markdown.go        # Markdown report generator
+│   ├── config/                # Configuration management
+│   │   └── config.go          # Config loading and defaults
+│   └── api/                   # API server (future)
+├── examples/                  # Example code
+├── config/                    # Configuration files
+├── Makefile                   # Build automation
+├── go.mod                     # Go module definition
+└── README.md                  # This file
 ```
 
 ## Quick Start
 
+### Prerequisites
+- Go 1.21 or higher
+- Make (optional)
+
+### Installation
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Clone repository
+git clone https://github.com/Leathal1/TITO.git
+cd TITO
 
-# Configure
-cp config/config.example.yaml config/config.yaml
-# Edit config.yaml with your settings
+# Build the binary
+make build
+# Or: go build -o atip ./cmd/atip
 
-# Initialize database
-python -m atip.cli init-db
+# Initialize configuration
+./atip init-config
 
-# Start collectors
-python -m atip.cli collect --all
+# Edit configuration
+vim config.yaml
 
-# Start API server
-python -m atip.cli serve
+# Collect threats
+./atip collect --all
 
 # Generate report
-python -m atip.cli report --format markdown --output report.md
+./atip report
+
+# Check status
+./atip status
 ```
 
 ## Core Principles
@@ -154,12 +170,43 @@ Reports don't just describe threats—they prescribe actions. Each threat includ
 ### 4. Continuous Learning
 Feedback loops are first-class citizens. Analyst actions train the scoring system. False positives tune the filters. The system gets smarter with use.
 
-## Development Philosophy
+## Why Go?
 
-- **Simplicity Until It Hurts** — Expose complexity progressively, not immediately
-- **Empathy for the User** — Design for the exhausted analyst at 3 AM
-- **Craft Over Speed** — Better to ship intelligence than noise
-- **Adversarial Mindset** — Think like an attacker, build for defenders
+ATIP is built in Go to leverage its unique strengths for production security tooling:
+
+- **Single Binary Deployment** - No dependencies, no runtime, just copy and run
+- **Native Concurrency** - Goroutines enable parallel collection and processing
+- **Compile-Time Safety** - Strong typing catches bugs before deployment
+- **Fast Execution** - Compiled performance for large-scale threat processing
+- **Cross-Platform** - Build for Linux, macOS, Windows from the same codebase
+- **Excellent Tooling** - Built-in formatting, testing, profiling, and more
+- **Production Ready** - Used by Kubernetes, Docker, Terraform, and other critical infrastructure
+
+## Development
+
+### Build Commands
+
+```bash
+make build          # Build binary
+make install        # Install system-wide
+make test           # Run tests
+make fmt            # Format code
+make vet            # Run linter
+make clean          # Clean build artifacts
+make all            # Clean, download deps, build
+```
+
+### Running Tests
+
+```bash
+go test -v ./...
+```
+
+### Code Formatting
+
+```bash
+go fmt ./...
+```
 
 ## Contributing
 

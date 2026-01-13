@@ -1,1 +1,0 @@
-"""ATIP Core Module"""

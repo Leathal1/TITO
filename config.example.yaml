@@ -1,0 +1,43 @@
+# ATIP Configuration Example
+# Copy this to config.yaml and customize
+
+collectors:
+  # NVD (National Vulnerability Database) Collector
+  nvd:
+    enabled: true
+    api_key: ""  # Optional: Get from https://nvd.nist.gov/developers/request-an-api-key
+    days_back: 7
+    interval: 6h
+
+  # OSINT (Open Source Intelligence) Collector
+  osint:
+    enabled: true
+    feeds:
+      - abuse.ch
+      - threatfox
+      - urlhaus
+    interval: 4h
+
+# Processing Pipeline Configuration
+pipeline:
+  min_priority: 0.2  # Filter out threats below this (0.0-1.0)
+  max_age_days: 90   # Filter out threats older than this
+
+# API Server Configuration
+api:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+
+# Report Generation
+reports:
+  output_dir: reports
+  formats:
+    - markdown
+    - json
+
+# Logging Configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARN, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: ""  # Optional: Set to a file path to enable file logging
