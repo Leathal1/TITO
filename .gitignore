@@ -1,5 +1,5 @@
 # Go build artifacts
-atip
+/atip
 *.exe
 *.exe~
 *.dll
@@ -8,6 +8,7 @@ atip
 *.test
 *.out
 go.work
+work/
 
 # IDEs
 .vscode/
