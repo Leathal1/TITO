@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Repository.URL}} - ATIP Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
+            padding: 2rem;
+            border-bottom: 2px solid #2a3f5f;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: #4fc3f7;
+            margin-bottom: 0.5rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #b0bec5;
+            text-decoration: none;
+            margin-bottom: 1rem;
+        }
+
+        .back-link:hover {
+            color: #4fc3f7;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #1a1f3a;
+            border: 1px solid #2a3f5f;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .stat-label {
+            color: #b0bec5;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .section {
+            background: #1a1f3a;
+            border: 1px solid #2a3f5f;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #4fc3f7;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #2a3f5f;
+        }
+
+        #dataflow-viz {
+            width: 100%;
+            height: 600px;
+            background: #0f1629;
+            border-radius: 8px;
+        }
+
+        .threat-card {
+            background: #0f1629;
+            border-left: 4px solid #4fc3f7;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+
+        .threat-card.critical {
+            border-left-color: #f44336;
+        }
+
+        .threat-card.high {
+            border-left-color: #ff9800;
+        }
+
+        .threat-card.medium {
+            border-left-color: #ffeb3b;
+        }
+
+        .threat-title {
+            font-size: 1.2rem;
+            color: #4fc3f7;
+            margin-bottom: 0.5rem;
+        }
+
+        .threat-meta {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-critical { background: #d32f2f; color: white; }
+        .badge-high { background: #f57c00; color: white; }
+        .badge-medium { background: #fbc02d; color: #000; }
+        .badge-low { background: #689f38; color: white; }
+
+        .asset-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .asset-item {
+            background: #0f1629;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #4fc3f7;
+        }
+
+        .asset-name {
+            font-weight: 600;
+            color: #4fc3f7;
+        }
+
+        .asset-location {
+            font-size: 0.85rem;
+            color: #b0bec5;
+            font-family: 'Courier New', monospace;
+        }
+
+        .mitigation-card {
+            background: #0f1629;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            border-left: 3px solid #4caf50;
+        }
+
+        .code-block {
+            background: #000;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #2a3f5f;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            color: #b0bec5;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #4fc3f7;
+        }
+
+        .tab.active {
+            color: #4fc3f7;
+            border-bottom-color: #4fc3f7;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="/" class="back-link">← Back to Dashboard</a>
+            <h1>{{.Repository.URL}}</h1>
+            <p style="color: #b0bec5;">
+                <span class="badge badge-language" style="background: #263238; color: #81c784;">{{.Repository.Language}}</span>
+                <span class="badge badge-framework" style="background: #1a237e; color: #90caf9; margin-left: 0.5rem;">{{.Repository.Framework}}</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{.Stats.TotalThreats}}</div>
+                <div class="stat-label">Threats</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{.Stats.TotalAssets}}</div>
+                <div class="stat-label">Assets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{.Stats.TotalFlows}}</div>
+                <div class="stat-label">Data Flows</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{printf "%.2f" .Stats.AverageRisk}}</div>
+                <div class="stat-label">Avg Risk</div>
+            </div>
+        </div>
+
+        <!-- Data Flow Visualization -->
+        <div class="section">
+            <h2 class="section-title">🔄 Data Flow Analysis</h2>
+            <div id="dataflow-viz"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="section">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('threats')">Threats</div>
+                <div class="tab" onclick="switchTab('assets')">Assets</div>
+                <div class="tab" onclick="switchTab('mitigations')">Mitigations</div>
+            </div>
+
+            <!-- Threats Tab -->
+            <div id="threats-tab" class="tab-content active">
+                {{range .Threats}}
+                <div class="threat-card {{.Threat.Severity}}">
+                    <div class="threat-title">{{.Threat.Title}}</div>
+                    <div class="threat-meta">
+                        <span class="badge badge-{{.Threat.Severity}}">{{.Threat.Severity}}</span>
+                        <span class="badge">Risk: {{printf "%.2f" .RiskScore}}</span>
+                        {{if .Threat.StrideProfile}}
+                        <span class="badge">{{.Threat.StrideProfile.PrimaryCategory}}</span>
+                        {{end}}
+                    </div>
+                    <p>{{.Threat.Description}}</p>
+                    {{if .Assets}}
+                    <div style="margin-top: 1rem;">
+                        <strong>Affected Assets:</strong> {{len .Assets}}
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Assets Tab -->
+            <div id="assets-tab" class="tab-content">
+                <ul class="asset-list">
+                    {{range .Repository.Assets}}
+                    <li class="asset-item">
+                        <div class="asset-name">{{.Name}}</div>
+                        <div class="asset-location">{{.Location.File}}:{{.Location.Line}}</div>
+                        <div style="margin-top: 0.5rem;">
+                            <span class="badge">{{.Type}}</span>
+                            {{if .Exposed}}<span class="badge" style="background: #f44336;">Exposed</span>{{end}}
+                            {{if .Sensitive}}<span class="badge" style="background: #ff9800;">Sensitive</span>{{end}}
+                        </div>
+                    </li>
+                    {{end}}
+                </ul>
+            </div>
+
+            <!-- Mitigations Tab -->
+            <div id="mitigations-tab" class="tab-content">
+                {{range .Threats}}
+                    {{range .Mitigations}}
+                    <div class="mitigation-card">
+                        <strong>{{.Description}}</strong>
+                        <div style="margin: 0.5rem 0;">
+                            <span class="badge badge-{{.Priority}}">{{.Priority}}</span>
+                            <span class="badge">Effort: {{.Effort}}</span>
+                        </div>
+                        {{if .Code}}
+                        <div class="code-block">{{.Code}}</div>
+                        {{end}}
+                    </div>
+                    {{end}}
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        // Data flow visualization with D3.js
+        function visualizeDataFlow() {
+            const repoId = '{{.Repository.URL}}'.slice(-20);
+
+            fetch(`/api/flows/${repoId}`)
+                .then(res => res.json())
+                .then(data => {
+                    renderFlowGraph(data);
+                });
+        }
+
+        function renderFlowGraph(data) {
+            const width = document.getElementById('dataflow-viz').offsetWidth;
+            const height = 600;
+
+            const svg = d3.select('#dataflow-viz')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            const simulation = d3.forceSimulation(data.nodes)
+                .force('link', d3.forceLink(data.links).id(d => d.id).distance(150))
+                .force('charge', d3.forceManyBody().strength(-400))
+                .force('center', d3.forceCenter(width / 2, height / 2));
+
+            // Draw links
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(data.links)
+                .join('line')
+                .attr('stroke', d => d.sensitive ? '#f44336' : '#4fc3f7')
+                .attr('stroke-width', 2);
+
+            // Draw nodes
+            const node = svg.append('g')
+                .selectAll('circle')
+                .data(data.nodes)
+                .join('circle')
+                .attr('r', 8)
+                .attr('fill', d => d.risky ? '#f44336' : '#4fc3f7')
+                .call(drag(simulation));
+
+            // Add labels
+            const label = svg.append('g')
+                .selectAll('text')
+                .data(data.nodes)
+                .join('text')
+                .text(d => d.label)
+                .attr('font-size', 12)
+                .attr('dx', 12)
+                .attr('dy', 4)
+                .attr('fill', '#e0e0e0');
+
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+
+                label
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+
+            function drag(simulation) {
+                function dragstarted(event) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    event.subject.fx = event.subject.x;
+                    event.subject.fy = event.subject.y;
+                }
+
+                function dragged(event) {
+                    event.subject.fx = event.x;
+                    event.subject.fy = event.y;
+                }
+
+                function dragended(event) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    event.subject.fx = null;
+                    event.subject.fy = null;
+                }
+
+                return d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended);
+            }
+        }
+
+        // Initialize visualization
+        visualizeDataFlow();
+    </script>
+</body>
+</html>

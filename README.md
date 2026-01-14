@@ -119,6 +119,7 @@ ATIP follows the intelligence lifecycle:
 
 ### Prerequisites
 - Go 1.21 or higher
+- Git (for repository scanning)
 - Make (optional)
 
 ### Installation
@@ -135,17 +136,74 @@ make build
 # Initialize configuration
 ./atip init-config
 
-# Edit configuration
-vim config.yaml
+# Scan a repository
+./atip scan --repo https://github.com/user/repo
 
-# Collect threats
+# Launch dashboard
+./atip dashboard
+
+# Or collect global threats
 ./atip collect --all
 
 # Generate report
 ./atip report
+```
 
-# Check status
-./atip status
+## 🎯 Code-Level Threat Intelligence
+
+ATIP 2.0 introduces revolutionary **repository scanning** and **interactive dashboards** that map threats directly to your code:
+
+### Repository Scanning
+```bash
+# Scan any Git repository
+atip scan --repo https://github.com/your/repo --branch main
+```
+
+**What it discovers:**
+- 🔍 **Assets** - APIs, databases, auth points, secrets
+- 🔄 **Data Flows** - Track data movement through your code
+- 📦 **Dependencies** - Extract and analyze all dependencies
+- 🎯 **Threat Mapping** - Match CVEs to YOUR specific code
+- 💡 **Mitigations** - Generate code-specific fixes
+
+### Interactive Dashboard
+```bash
+# Launch web dashboard
+atip dashboard
+```
+
+**Features:**
+- 📊 **Data Flow Visualization** - Interactive D3.js graphs showing data movement
+- 🎯 **Threat-to-Code Mapping** - See exactly where threats affect your code
+- 📍 **Asset Inventory** - Browse all discovered assets with file:line locations
+- 🛡️ **Mitigation Recommendations** - Actionable fixes with example code
+- 📈 **Risk Scoring** - Prioritized by actual exposure in YOUR codebase
+
+### How It Works
+
+```
+1. Scan Repository
+   ├─> Clone and analyze code
+   ├─> Discover assets (APIs, DBs, auth)
+   ├─> Trace data flows
+   └─> Extract dependencies
+
+2. Collect Threats
+   ├─> Gather CVEs from NVD
+   ├─> Classify with STRIDE-LM
+   └─> Process through pipeline
+
+3. Map Threats to Code
+   ├─> Match CVEs to dependencies
+   ├─> Map by STRIDE-LM categories
+   ├─> Calculate risk scores
+   └─> Generate mitigations
+
+4. Visualize in Dashboard
+   ├─> Interactive data flow graphs
+   ├─> Asset locations (file:line)
+   ├─> Threat severity heatmaps
+   └─> Code-specific fixes
 ```
 
 ## Core Principles

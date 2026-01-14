@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATIP Dashboard - Threat Intelligence Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
+            padding: 2rem;
+            border-bottom: 2px solid #2a3f5f;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #4fc3f7 0%, #00acc1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #b0bec5;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #1a1f3a;
+            border: 1px solid #2a3f5f;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(79, 195, 247, 0.2);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4fc3f7 0%, #00acc1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #b0bec5;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .repos-section {
+            background: #1a1f3a;
+            border: 1px solid #2a3f5f;
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #4fc3f7;
+        }
+
+        .repo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .repo-card {
+            background: #0f1629;
+            border: 1px solid #2a3f5f;
+            border-radius: 8px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .repo-card:hover {
+            border-color: #4fc3f7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
+        }
+
+        .repo-name {
+            font-size: 1.2rem;
+            color: #4fc3f7;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .repo-meta {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-language {
+            background: #263238;
+            color: #81c784;
+        }
+
+        .badge-framework {
+            background: #1a237e;
+            color: #90caf9;
+        }
+
+        .repo-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .repo-stat {
+            text-align: center;
+        }
+
+        .repo-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .repo-stat-label {
+            font-size: 0.75rem;
+            color: #b0bec5;
+            text-transform: uppercase;
+        }
+
+        .critical {
+            color: #f44336;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #b0bec5;
+        }
+
+        .empty-state h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(135deg, #4fc3f7 0%, #00acc1 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🛡️ ATIP Dashboard</h1>
+            <p>Advanced Threat Intelligence Platform - Code-Level Security Analysis</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{.TotalThreats}}</div>
+                <div class="stat-label">Total Threats</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{.TotalAssets}}</div>
+                <div class="stat-label">Code Assets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{len .Repositories}}</div>
+                <div class="stat-label">Repositories</div>
+            </div>
+        </div>
+
+        <div class="repos-section">
+            <h2 class="section-title">Scanned Repositories</h2>
+
+            {{if .Repositories}}
+                <div class="repo-grid">
+                    {{range .Repositories}}
+                    <a href="/repository/{{.ID}}" style="text-decoration: none; color: inherit;">
+                        <div class="repo-card">
+                            <div class="repo-name">{{.URL}}</div>
+                            <div class="repo-meta">
+                                <span class="badge badge-language">{{.Language}}</span>
+                                <span class="badge badge-framework">{{.Framework}}</span>
+                            </div>
+                            <div class="repo-stats">
+                                <div class="repo-stat">
+                                    <div class="repo-stat-value">{{.ThreatCount}}</div>
+                                    <div class="repo-stat-label">Threats</div>
+                                </div>
+                                <div class="repo-stat">
+                                    <div class="repo-stat-value">{{.AssetCount}}</div>
+                                    <div class="repo-stat-label">Assets</div>
+                                </div>
+                                <div class="repo-stat">
+                                    <div class="repo-stat-value critical">{{.CriticalCount}}</div>
+                                    <div class="repo-stat-label">Critical</div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {{end}}
+                </div>
+            {{else}}
+                <div class="empty-state">
+                    <h2>No Repositories Scanned Yet</h2>
+                    <p>Use the CLI to scan a repository:</p>
+                    <code style="display: block; margin: 1rem auto; background: #0f1629; padding: 1rem; border-radius: 6px; max-width: 500px;">
+                        atip scan --repo https://github.com/user/repo
+                    </code>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh every 30 seconds
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>
