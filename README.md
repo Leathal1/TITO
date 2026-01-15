@@ -1,10 +1,10 @@
-# ATIP - Advanced Threat Intelligence Platform
+# TITO - Threat In Threat Out
 
 > *"We're not aggregating feeds. We're building an intelligence organism—something that breathes in chaos and exhales clarity."*
 
 ## The Vision
 
-ATIP is a threat intelligence platform built in **pure Go** with the STRIDE-LM framework. It transforms raw threat data into actionable intelligence that defenders can use to make critical decisions under pressure.
+TITO is a threat intelligence platform built in **pure Go** with the STRIDE-LM framework. It transforms raw threat data into actionable intelligence that defenders can use to make critical decisions under pressure.
 
 **Built with Go for:**
 - ⚡ **Performance** - Compiled, concurrent, blazing fast
