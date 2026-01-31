@@ -1,0 +1,145 @@
+name: 'TITO Threat Model'
+description: 'Automated threat modeling with STRIDE-LM, MAESTRO, MITRE ATT&CK, and attack path analysis'
+author: 'Leathal1'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  repo:
+    description: 'Repository path or URL to scan (defaults to current workspace)'
+    required: false
+    default: '.'
+  maestro:
+    description: 'Enable MAESTRO agentic AI analysis (Pro)'
+    required: false
+    default: 'false'
+  mitre:
+    description: 'Enable MITRE ATT&CK mapping (Pro)'
+    required: false
+    default: 'false'
+  semgrep:
+    description: 'Enable Semgrep SAST integration (Pro)'
+    required: false
+    default: 'false'
+  attack-paths:
+    description: 'Enable attack path analysis'
+    required: false
+    default: 'true'
+  output:
+    description: 'Output file path'
+    required: false
+    default: 'threat-model.html'
+  license-key:
+    description: 'TITO license key for Pro/Enterprise features'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Fail the action on threat severity (critical, high, any, never)'
+    required: false
+    default: 'never'
+  diff-base:
+    description: 'Base branch for threat diffing (enables diff mode)'
+    required: false
+    default: ''
+  diff-head:
+    description: 'Head branch for threat diffing'
+    required: false
+    default: ''
+  three-d:
+    description: 'Generate 3D interactive visualization'
+    required: false
+    default: 'false'
+
+outputs:
+  threats-total:
+    description: 'Total number of threats found'
+    value: ${{ steps.parse.outputs.threats-total }}
+  threats-critical:
+    description: 'Number of critical threats'
+    value: ${{ steps.parse.outputs.threats-critical }}
+  threats-high:
+    description: 'Number of high threats'
+    value: ${{ steps.parse.outputs.threats-high }}
+  attack-paths-count:
+    description: 'Number of attack paths found'
+    value: ${{ steps.parse.outputs.attack-paths-count }}
+  report-path:
+    description: 'Path to the generated report'
+    value: ${{ steps.run.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install TITO
+      id: install
+      shell: bash
+      run: |
+        TITO_VERSION="v2.1.0"
+        ARCH=$(uname -m)
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+        if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
+        BINARY="tito-${OS}-${ARCH}"
+        echo "📦 Downloading TITO ${TITO_VERSION} for ${OS}/${ARCH}..."
+        curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${TITO_VERSION}/${BINARY}" -o /usr/local/bin/tito
+        chmod +x /usr/local/bin/tito
+        echo "✅ $(tito version | head -1)"
+
+    - name: Run TITO
+      id: run
+      shell: bash
+      env:
+        TITO_LICENSE_KEY: ${{ inputs.license-key }}
+      run: |
+        set -e
+
+        if [ -n "${{ inputs.diff-base }}" ]; then
+          # ── Diff mode ──
+          HEAD="${{ inputs.diff-head }}"
+          if [ -z "$HEAD" ]; then HEAD="HEAD"; fi
+
+          echo "🔍 Running threat diff: ${{ inputs.diff-base }} → ${HEAD}"
+          tito diff \
+            --repo "${{ inputs.repo }}" \
+            --base "${{ inputs.diff-base }}" \
+            --head "${HEAD}" \
+            --format markdown \
+            --output threat-diff.md \
+            --fail-on "${{ inputs.fail-on }}"
+
+          echo "report-path=threat-diff.md" >> "$GITHUB_OUTPUT"
+        else
+          # ── Scan mode ──
+          ARGS="--repo ${{ inputs.repo }}"
+
+          if [ "${{ inputs.maestro }}" = "true" ]; then ARGS="$ARGS --maestro"; fi
+          if [ "${{ inputs.mitre }}" = "true" ]; then ARGS="$ARGS --mitre"; fi
+          if [ "${{ inputs.semgrep }}" = "true" ]; then ARGS="$ARGS --semgrep"; fi
+          if [ "${{ inputs.attack-paths }}" = "true" ]; then ARGS="$ARGS --attack-paths"; fi
+          if [ "${{ inputs.three-d }}" = "true" ]; then ARGS="$ARGS --3d"; fi
+
+          ARGS="$ARGS --output ${{ inputs.output }}"
+
+          echo "🔍 Running threat scan..."
+          tito scan $ARGS
+
+          echo "report-path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Parse Results
+      id: parse
+      shell: bash
+      if: always()
+      run: |
+        # Extract counts from the report if available
+        REPORT="${{ steps.run.outputs.report-path }}"
+        if [ -f "$REPORT" ]; then
+          echo "📊 Report generated: $REPORT"
+        fi
+
+        # Set defaults (TITO can output JSON for machine parsing in future)
+        echo "threats-total=0" >> "$GITHUB_OUTPUT"
+        echo "threats-critical=0" >> "$GITHUB_OUTPUT"
+        echo "threats-high=0" >> "$GITHUB_OUTPUT"
+        echo "attack-paths-count=0" >> "$GITHUB_OUTPUT"
