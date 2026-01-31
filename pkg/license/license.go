@@ -1,9 +1,8 @@
 package license
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -21,6 +20,10 @@ const (
 	TierEnterprise Tier = "enterprise"
 )
 
+// Embedded Ed25519 public key (base64-encoded).
+// This is the ONLY key needed for verification. The private key lives on the license server.
+const publicKeyB64 = "CZMtpehuIntYBumoJLb9pFJeWzqf+/GK5b4JSdQnSG4="
+
 // License represents a TITO license
 type License struct {
 	Key       string    `json:"key"`
@@ -32,9 +35,26 @@ type License struct {
 // Global license cache
 var cachedLicense *License
 
+// publicKey is the parsed Ed25519 public key, initialized once.
+var publicKey ed25519.PublicKey
+
+func init() {
+	raw, err := base64.StdEncoding.DecodeString(publicKeyB64)
+	if err != nil {
+		// This should never happen with a valid embedded key
+		panic("license: invalid embedded public key: " + err.Error())
+	}
+	publicKey = ed25519.PublicKey(raw)
+}
+
 // ResetCache clears the cached license (for testing)
 func ResetCache() {
 	cachedLicense = nil
+}
+
+// SetPublicKeyForTesting overrides the embedded public key (for test use only).
+func SetPublicKeyForTesting(pub ed25519.PublicKey) {
+	publicKey = pub
 }
 
 // CheckLicense checks for a valid license from env var or config file
@@ -57,6 +77,16 @@ func CheckLicense() (*License, error) {
 
 	// 1. Check environment variable
 	if key := os.Getenv("TITO_LICENSE_KEY"); key != "" {
+		// Handle trial license
+		if key == "trial" {
+			license, err := checkTrialLicense()
+			if err != nil {
+				return nil, fmt.Errorf("trial license error: %w", err)
+			}
+			cachedLicense = license
+			return license, nil
+		}
+
 		license, err := ValidateLicenseKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("invalid TITO_LICENSE_KEY: %w", err)
@@ -123,15 +153,17 @@ func IsEnterprise() bool {
 	return license.Tier == TierEnterprise
 }
 
-// ValidateLicenseKey validates a license key and returns the license
+// ValidateLicenseKey validates a license key and returns the license.
+// Key format: tito_{tier}_{orgname}_{expiry}_{ed25519_signature_base64url}
 func ValidateLicenseKey(key string) (*License, error) {
 	if key == "" {
 		return nil, fmt.Errorf("empty license key")
 	}
 
-	// Parse the license key format: tito_{tier}_{orgname}_{expiry}_{signature}
-	parts := strings.Split(key, "_")
-	if len(parts) < 5 || parts[0] != "tito" {
+	// Split into at most 5 parts: prefix, tier, orgname, expiry, signature
+	// The signature may contain underscores in base64url so we split carefully.
+	parts := strings.SplitN(key, "_", 5)
+	if len(parts) != 5 || parts[0] != "tito" {
 		return nil, fmt.Errorf("invalid license key format")
 	}
 
@@ -142,7 +174,7 @@ func ValidateLicenseKey(key string) (*License, error) {
 
 	orgName := parts[2]
 	expiryStr := parts[3]
-	signature := parts[4]
+	signatureB64 := parts[4]
 
 	// Parse expiry date (YYYYMMDD format)
 	expiresAt, err := time.Parse("20060102", expiryStr)
@@ -150,13 +182,17 @@ func ValidateLicenseKey(key string) (*License, error) {
 		return nil, fmt.Errorf("invalid expiry date: %w", err)
 	}
 
-	// Verify HMAC signature
-	// In production, this secret should be environment-specific
-	// For now, we use a simple shared secret
-	secret := getSigningSecret()
+	// The signed payload is everything before the signature
 	payload := fmt.Sprintf("tito_%s_%s_%s", tier, orgName, expiryStr)
 
-	if !verifyHMAC(payload, signature, secret) {
+	// Decode the base64url signature
+	sigBytes, err := base64.RawURLEncoding.DecodeString(signatureB64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signature encoding: %w", err)
+	}
+
+	// Verify Ed25519 signature
+	if !ed25519.Verify(publicKey, []byte(payload), sigBytes) {
 		return nil, fmt.Errorf("invalid license signature")
 	}
 
@@ -190,10 +226,22 @@ func GetLicenseInfo() string {
 	}
 
 	if license.Tier == TierFree {
+		if license.Key == "trial-expired" {
+			return "TITO Free (trial expired)"
+		}
 		return "TITO Free"
 	}
 
-	info := fmt.Sprintf("TITO %s", strings.Title(string(license.Tier)))
+	// Trial license
+	if license.Key == "trial" {
+		daysLeft := TrialDaysRemaining()
+		if daysLeft >= 0 {
+			return fmt.Sprintf("TITO Pro (trial - %d days remaining)", daysLeft)
+		}
+		return "TITO Pro (trial)"
+	}
+
+	info := fmt.Sprintf("TITO %s", strings.ToTitle(string(license.Tier[:1]))+string(license.Tier[1:]))
 	if license.OrgName != "" {
 		info += fmt.Sprintf(" (%s)", license.OrgName)
 	}
@@ -237,14 +285,102 @@ func SaveLicense(license *License) error {
 	return nil
 }
 
-// GenerateLicenseKey generates a license key (for internal use / license server)
-func GenerateLicenseKey(tier Tier, orgName string, expiresAt time.Time) string {
-	expiryStr := expiresAt.Format("20060102")
-	payload := fmt.Sprintf("tito_%s_%s_%s", tier, orgName, expiryStr)
-	secret := getSigningSecret()
-	signature := generateHMAC(payload, secret)
+// --- Trial license support ---
 
-	return fmt.Sprintf("tito_%s_%s_%s_%s", tier, orgName, expiryStr, signature)
+// TrialState represents the persisted trial state
+type TrialState struct {
+	StartedAt time.Time `json:"started_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+const trialDuration = 14 * 24 * time.Hour
+
+// getTrialStatePath returns the path to the trial state file
+func getTrialStatePath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "/tmp/tito-trial.json"
+	}
+	return filepath.Join(homeDir, ".config", "tito", "trial.json")
+}
+
+// checkTrialLicense checks or initializes a trial license
+func checkTrialLicense() (*License, error) {
+	trialPath := getTrialStatePath()
+
+	var state TrialState
+
+	data, err := os.ReadFile(trialPath)
+	if err != nil {
+		// No trial file — create one
+		now := time.Now()
+		state = TrialState{
+			StartedAt: now,
+			ExpiresAt: now.Add(trialDuration),
+		}
+
+		// Ensure directory exists
+		if err := os.MkdirAll(filepath.Dir(trialPath), 0755); err != nil {
+			return nil, fmt.Errorf("failed to create config directory: %w", err)
+		}
+
+		stateJSON, err := json.MarshalIndent(state, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal trial state: %w", err)
+		}
+		if err := os.WriteFile(trialPath, stateJSON, 0600); err != nil {
+			return nil, fmt.Errorf("failed to write trial state: %w", err)
+		}
+
+		fmt.Println("🎉 Trial activated! You have 14 days of TITO Pro features.")
+		fmt.Printf("   Trial expires: %s\n", state.ExpiresAt.Format("2006-01-02"))
+		fmt.Println()
+	} else {
+		if err := json.Unmarshal(data, &state); err != nil {
+			return nil, fmt.Errorf("failed to parse trial state: %w", err)
+		}
+	}
+
+	// Check if trial is expired
+	if time.Now().After(state.ExpiresAt) {
+		fmt.Println("⏰ Trial expired. Falling back to TITO Free.")
+		fmt.Println("   Upgrade to Pro to keep premium features: https://tito.security/pricing")
+		fmt.Println()
+		return &License{
+			Key:       "trial-expired",
+			Tier:      TierFree,
+			ExpiresAt: time.Time{},
+			OrgName:   "",
+		}, nil
+	}
+
+	return &License{
+		Key:       "trial",
+		Tier:      TierPro,
+		ExpiresAt: state.ExpiresAt,
+		OrgName:   "Trial",
+	}, nil
+}
+
+// TrialDaysRemaining returns the number of days remaining in the trial,
+// or -1 if no trial is active
+func TrialDaysRemaining() int {
+	trialPath := getTrialStatePath()
+	data, err := os.ReadFile(trialPath)
+	if err != nil {
+		return -1
+	}
+
+	var state TrialState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return -1
+	}
+
+	remaining := time.Until(state.ExpiresAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Hours() / 24)
 }
 
 // Helper functions
@@ -262,25 +398,4 @@ func getLicenseConfigPath() string {
 	}
 
 	return filepath.Join(homeDir, ".config", "tito", "license.json")
-}
-
-func getSigningSecret() string {
-	// In production, this should be an environment variable or derived from
-	// a secure key management system. For now, we use a simple shared secret.
-	// This is sufficient for an HMAC check on the client side.
-	if secret := os.Getenv("TITO_LICENSE_SECRET"); secret != "" {
-		return secret
-	}
-	return "tito-license-hmac-secret-v1" // Default secret
-}
-
-func generateHMAC(message, secret string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(message))
-	return hex.EncodeToString(h.Sum(nil))[:16] // Use first 16 chars for brevity
-}
-
-func verifyHMAC(message, signature, secret string) bool {
-	expectedSignature := generateHMAC(message, secret)
-	return hmac.Equal([]byte(signature), []byte(expectedSignature))
 }

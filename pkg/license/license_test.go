@@ -1,15 +1,46 @@
 package license
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 )
 
+// testPrivateKey is an Ed25519 private key used only in tests.
+var testPrivateKey ed25519.PrivateKey
+var testPublicKey ed25519.PublicKey
+
+func TestMain(m *testing.M) {
+	// Generate a throwaway keypair for tests
+	var err error
+	testPublicKey, testPrivateKey, err = ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate test keypair: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Override the embedded public key with our test key
+	SetPublicKeyForTesting(testPublicKey)
+
+	os.Exit(m.Run())
+}
+
+// generateTestKey signs a license key using the test private key.
+func generateTestKey(tier Tier, orgName string, expiresAt time.Time) string {
+	expiryStr := expiresAt.Format("20060102")
+	payload := fmt.Sprintf("tito_%s_%s_%s", tier, orgName, expiryStr)
+	sig := ed25519.Sign(testPrivateKey, []byte(payload))
+	sigB64 := base64.RawURLEncoding.EncodeToString(sig)
+	return fmt.Sprintf("tito_%s_%s_%s_%s", tier, orgName, expiryStr, sigB64)
+}
+
 func TestValidateLicenseKey(t *testing.T) {
-	// Generate a test license key
 	expiresAt := time.Now().Add(365 * 24 * time.Hour)
-	key := GenerateLicenseKey(TierPro, "TestOrg", expiresAt)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
 
 	license, err := ValidateLicenseKey(key)
 	if err != nil {
@@ -26,9 +57,8 @@ func TestValidateLicenseKey(t *testing.T) {
 }
 
 func TestValidateLicenseKey_Expired(t *testing.T) {
-	// Generate an expired license
-	expiresAt := time.Now().Add(-24 * time.Hour) // Expired yesterday
-	key := GenerateLicenseKey(TierPro, "TestOrg", expiresAt)
+	expiresAt := time.Now().Add(-24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
 
 	_, err := ValidateLicenseKey(key)
 	if err == nil {
@@ -43,12 +73,38 @@ func TestValidateLicenseKey_InvalidFormat(t *testing.T) {
 	}
 }
 
+func TestValidateLicenseKey_TamperedSignature(t *testing.T) {
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
+
+	// Tamper with the signature (change last character)
+	tampered := key[:len(key)-1] + "X"
+	_, err := ValidateLicenseKey(tampered)
+	if err == nil {
+		t.Fatal("Expected error for tampered signature, got nil")
+	}
+}
+
+func TestValidateLicenseKey_WrongKey(t *testing.T) {
+	// Sign with a completely different private key
+	_, otherPriv, _ := ed25519.GenerateKey(rand.Reader)
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	expiryStr := expiresAt.Format("20060102")
+	payload := fmt.Sprintf("tito_%s_%s_%s", TierPro, "TestOrg", expiryStr)
+	sig := ed25519.Sign(otherPriv, []byte(payload))
+	sigB64 := base64.RawURLEncoding.EncodeToString(sig)
+	key := fmt.Sprintf("tito_%s_%s_%s_%s", TierPro, "TestOrg", expiryStr, sigB64)
+
+	_, err := ValidateLicenseKey(key)
+	if err == nil {
+		t.Fatal("Expected error for key signed with wrong private key, got nil")
+	}
+}
+
 func TestCheckLicense_SkipFlag(t *testing.T) {
-	// Set skip flag
 	os.Setenv("TITO_SKIP_LICENSE", "1")
 	defer os.Unsetenv("TITO_SKIP_LICENSE")
 
-	// Clear cache
 	cachedLicense = nil
 
 	license, err := CheckLicense()
@@ -62,14 +118,12 @@ func TestCheckLicense_SkipFlag(t *testing.T) {
 }
 
 func TestCheckLicense_EnvVar(t *testing.T) {
-	// Generate a test license
 	expiresAt := time.Now().Add(365 * 24 * time.Hour)
-	key := GenerateLicenseKey(TierPro, "EnvTest", expiresAt)
+	key := generateTestKey(TierPro, "EnvTest", expiresAt)
 
 	os.Setenv("TITO_LICENSE_KEY", key)
 	defer os.Unsetenv("TITO_LICENSE_KEY")
 
-	// Clear cache and skip flag
 	cachedLicense = nil
 	os.Unsetenv("TITO_SKIP_LICENSE")
 
@@ -84,7 +138,6 @@ func TestCheckLicense_EnvVar(t *testing.T) {
 }
 
 func TestCheckLicense_Free(t *testing.T) {
-	// Clear all license sources
 	os.Unsetenv("TITO_LICENSE_KEY")
 	os.Unsetenv("TITO_SKIP_LICENSE")
 	cachedLicense = nil
@@ -112,14 +165,12 @@ func TestIsPro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set up license
-			expiresAt := time.Now().Add(365 * 24 * time.Hour)
-			key := GenerateLicenseKey(tt.tier, "TestOrg", expiresAt)
-
 			if tt.tier == TierFree {
 				os.Unsetenv("TITO_LICENSE_KEY")
 				os.Unsetenv("TITO_SKIP_LICENSE")
 			} else {
+				expiresAt := time.Now().Add(365 * 24 * time.Hour)
+				key := generateTestKey(tt.tier, "TestOrg", expiresAt)
 				os.Setenv("TITO_LICENSE_KEY", key)
 				defer os.Unsetenv("TITO_LICENSE_KEY")
 			}
@@ -135,10 +186,10 @@ func TestIsPro(t *testing.T) {
 }
 
 func TestIsEnterprise(t *testing.T) {
-	// Test Enterprise tier
 	expiresAt := time.Now().Add(365 * 24 * time.Hour)
-	key := GenerateLicenseKey(TierEnterprise, "TestOrg", expiresAt)
 
+	// Test Enterprise tier
+	key := generateTestKey(TierEnterprise, "TestOrg", expiresAt)
 	os.Setenv("TITO_LICENSE_KEY", key)
 	defer os.Unsetenv("TITO_LICENSE_KEY")
 	cachedLicense = nil
@@ -148,7 +199,7 @@ func TestIsEnterprise(t *testing.T) {
 	}
 
 	// Test Pro tier (should be false)
-	key = GenerateLicenseKey(TierPro, "TestOrg", expiresAt)
+	key = generateTestKey(TierPro, "TestOrg", expiresAt)
 	os.Setenv("TITO_LICENSE_KEY", key)
 	cachedLicense = nil
 
@@ -159,7 +210,7 @@ func TestIsEnterprise(t *testing.T) {
 
 func TestGetLicenseInfo(t *testing.T) {
 	expiresAt := time.Now().Add(30 * 24 * time.Hour)
-	key := GenerateLicenseKey(TierPro, "TestOrg", expiresAt)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
 
 	os.Setenv("TITO_LICENSE_KEY", key)
 	defer os.Unsetenv("TITO_LICENSE_KEY")
@@ -170,46 +221,28 @@ func TestGetLicenseInfo(t *testing.T) {
 		t.Error("GetLicenseInfo() returned empty string")
 	}
 
-	// Should contain tier and org name
 	if !containsString(info, "Pro") || !containsString(info, "TestOrg") {
 		t.Errorf("GetLicenseInfo() = %s, expected to contain Pro and TestOrg", info)
 	}
 }
 
-func TestGenerateHMAC(t *testing.T) {
-	message := "test_message"
-	secret := "test_secret"
+func TestGetTier(t *testing.T) {
+	os.Unsetenv("TITO_LICENSE_KEY")
+	os.Unsetenv("TITO_SKIP_LICENSE")
+	cachedLicense = nil
 
-	sig1 := generateHMAC(message, secret)
-	sig2 := generateHMAC(message, secret)
-
-	if sig1 != sig2 {
-		t.Error("generateHMAC should be deterministic")
+	if GetTier() != TierFree {
+		t.Errorf("GetTier() should return Free when no license, got %s", GetTier())
 	}
 
-	// Different message should produce different signature
-	sig3 := generateHMAC("different_message", secret)
-	if sig1 == sig3 {
-		t.Error("Different messages should produce different signatures")
-	}
-}
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierEnterprise, "TestOrg", expiresAt)
+	os.Setenv("TITO_LICENSE_KEY", key)
+	defer os.Unsetenv("TITO_LICENSE_KEY")
+	cachedLicense = nil
 
-func TestVerifyHMAC(t *testing.T) {
-	message := "test_message"
-	secret := "test_secret"
-
-	signature := generateHMAC(message, secret)
-
-	if !verifyHMAC(message, signature, secret) {
-		t.Error("verifyHMAC should validate correct signature")
-	}
-
-	if verifyHMAC(message, "wrong_signature", secret) {
-		t.Error("verifyHMAC should reject incorrect signature")
-	}
-
-	if verifyHMAC("wrong_message", signature, secret) {
-		t.Error("verifyHMAC should reject wrong message")
+	if GetTier() != TierEnterprise {
+		t.Errorf("GetTier() should return Enterprise, got %s", GetTier())
 	}
 }
 
