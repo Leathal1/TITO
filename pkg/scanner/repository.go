@@ -298,7 +298,6 @@ func (s *Scanner) discoverAssets(ctx context.Context, repo *Repository) error {
 func (s *Scanner) scanFileForAssets(filePath, content, language string) []Asset {
 	assets := make([]Asset, 0)
 	lines := strings.Split(content, "\n")
-	lowerContent := strings.ToLower(content)
 
 	for lineNum, line := range lines {
 		lowerLine := strings.ToLower(line)
@@ -620,33 +619,212 @@ func extractEnvVar(line string) string {
 
 // analyzeDataFlows analyzes data flows through the code
 func (s *Scanner) analyzeDataFlows(ctx context.Context, repo *Repository) error {
-	// Simplified data flow analysis
-	// Real implementation would use AST parsing
 	flows := make([]DataFlow, 0)
+	flowMap := make(map[string]bool) // Deduplicate flows
 
-	// Find HTTP handler -> Database flows
+	// Group assets by file for proximity analysis
+	assetsByFile := make(map[string][]Asset)
+	for _, asset := range repo.Assets {
+		assetsByFile[asset.Location.File] = append(assetsByFile[asset.Location.File], asset)
+	}
+
+	// Flow 1: API -> Database (user input to persistence)
 	apiAssets := filterAssets(repo.Assets, AssetAPI)
 	dbAssets := filterAssets(repo.Assets, AssetDatabase)
-
 	for _, api := range apiAssets {
 		for _, db := range dbAssets {
-			// If in same file or nearby, likely a flow
 			if api.Location.File == db.Location.File {
-				flows = append(flows, DataFlow{
-					ID:          fmt.Sprintf("flow-%s-%s", api.ID, db.ID),
-					Source:      api.Location,
-					Destination: db.Location,
-					DataType:    "user_input",
-					Sensitive:   true,
-					Path:        []Location{api.Location, db.Location},
-					Threats:     []string{}, // Will be populated by mapper
-				})
+				flowID := fmt.Sprintf("flow-api-db-%s-%s", api.ID, db.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      api.Location,
+						Destination: db.Location,
+						DataType:    "user_data",
+						Sensitive:   true,
+						Path:        []Location{api.Location, db.Location},
+						Threats:     []string{"SQL Injection", "Data Tampering"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 2: API -> External API (proxying/forwarding)
+	extAssets := filterAssets(repo.Assets, AssetNetwork)
+	for _, api := range apiAssets {
+		for _, ext := range extAssets {
+			if api.Location.File == ext.Location.File {
+				flowID := fmt.Sprintf("flow-api-ext-%s-%s", api.ID, ext.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      api.Location,
+						Destination: ext.Location,
+						DataType:    "forwarded_request",
+						Sensitive:   api.Sensitive || ext.Sensitive,
+						Path:        []Location{api.Location, ext.Location},
+						Threats:     []string{"SSRF", "Data Leakage"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 3: Authentication -> API (protected endpoints)
+	authAssets := filterAssets(repo.Assets, AssetAuth)
+	for _, auth := range authAssets {
+		for _, api := range apiAssets {
+			if auth.Location.File == api.Location.File &&
+				abs(auth.Location.Line-api.Location.Line) < 50 {
+				flowID := fmt.Sprintf("flow-auth-api-%s-%s", auth.ID, api.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      auth.Location,
+						Destination: api.Location,
+						DataType:    "authenticated_request",
+						Sensitive:   true,
+						Path:        []Location{auth.Location, api.Location},
+						Threats:     []string{"Broken Authentication", "Session Hijacking"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 4: File I/O from API (uploads)
+	fileAssets := filterAssets(repo.Assets, AssetFileSystem)
+	for _, api := range apiAssets {
+		for _, file := range fileAssets {
+			if api.Location.File == file.Location.File {
+				flowID := fmt.Sprintf("flow-api-file-%s-%s", api.ID, file.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      api.Location,
+						Destination: file.Location,
+						DataType:    "file_upload",
+						Sensitive:   true,
+						Path:        []Location{api.Location, file.Location},
+						Threats:     []string{"Path Traversal", "Arbitrary File Upload"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 5: Environment variables -> Config -> Services
+	envAssets := filterAssets(repo.Assets, AssetSecret)
+	for _, env := range envAssets {
+		// Find usage in same or nearby files
+		for file, assets := range assetsByFile {
+			for _, asset := range assets {
+				if asset.Type != AssetSecret && 
+					(file == env.Location.File || 
+					strings.Contains(file, "config") || 
+					strings.Contains(file, "setup")) {
+					flowID := fmt.Sprintf("flow-env-svc-%s-%s", env.ID, asset.ID)
+					if !flowMap[flowID] {
+						flowMap[flowID] = true
+						flows = append(flows, DataFlow{
+							ID:          flowID,
+							Source:      env.Location,
+							Destination: asset.Location,
+							DataType:    "configuration",
+							Sensitive:   true,
+							Path:        []Location{env.Location, asset.Location},
+							Threats:     []string{"Secret Exposure", "Configuration Tampering"},
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Flow 6: Database -> Cache (read-through caching)
+	cacheAssets := filterAssets(repo.Assets, AssetCache)
+	for _, db := range dbAssets {
+		for _, cache := range cacheAssets {
+			if db.Location.File == cache.Location.File {
+				flowID := fmt.Sprintf("flow-db-cache-%s-%s", db.ID, cache.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      db.Location,
+						Destination: cache.Location,
+						DataType:    "cached_data",
+						Sensitive:   db.Sensitive,
+						Path:        []Location{db.Location, cache.Location},
+						Threats:     []string{"Cache Poisoning", "Data Exposure"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 7: Queue producers and consumers
+	queueAssets := filterAssets(repo.Assets, AssetQueue)
+	for _, api := range apiAssets {
+		for _, queue := range queueAssets {
+			if api.Location.File == queue.Location.File {
+				flowID := fmt.Sprintf("flow-api-queue-%s-%s", api.ID, queue.ID)
+				if !flowMap[flowID] {
+					flowMap[flowID] = true
+					flows = append(flows, DataFlow{
+						ID:          flowID,
+						Source:      api.Location,
+						Destination: queue.Location,
+						DataType:    "async_message",
+						Sensitive:   api.Sensitive,
+						Path:        []Location{api.Location, queue.Location},
+						Threats:     []string{"Message Injection", "Replay Attacks"},
+					})
+				}
+			}
+		}
+	}
+
+	// Flow 8: Crypto operations on sensitive data
+	cryptoAssets := filterAssets(repo.Assets, AssetCrypto)
+	for _, crypto := range cryptoAssets {
+		// Find sensitive assets in proximity
+		if assets, ok := assetsByFile[crypto.Location.File]; ok {
+			for _, asset := range assets {
+				if asset.Sensitive && asset.Type != AssetCrypto {
+					flowID := fmt.Sprintf("flow-data-crypto-%s-%s", asset.ID, crypto.ID)
+					if !flowMap[flowID] {
+						flowMap[flowID] = true
+						flows = append(flows, DataFlow{
+							ID:          flowID,
+							Source:      asset.Location,
+							Destination: crypto.Location,
+							DataType:    "encrypted_data",
+							Sensitive:   true,
+							Path:        []Location{asset.Location, crypto.Location},
+							Threats:     []string{"Weak Cryptography", "Key Management"},
+						})
+					}
+				}
 			}
 		}
 	}
 
 	repo.DataFlows = flows
 	return nil
+}
+
+// Helper function for absolute difference
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // extractDependencies extracts project dependencies
@@ -662,16 +840,57 @@ func (s *Scanner) extractDependencies(ctx context.Context, repo *Repository) err
 		}
 
 	case "python":
+		// Try requirements.txt
 		reqFile := filepath.Join(repo.LocalPath, "requirements.txt")
 		data, err := os.ReadFile(reqFile)
 		if err == nil {
 			deps = parseRequirementsTxt(string(data))
 		}
+		// Try Pipfile
+		if len(deps) == 0 {
+			pipFile := filepath.Join(repo.LocalPath, "Pipfile")
+			data, err := os.ReadFile(pipFile)
+			if err == nil {
+				deps = parsePipfile(string(data))
+			}
+		}
 
 	case "javascript", "typescript":
 		pkgFile := filepath.Join(repo.LocalPath, "package.json")
-		// Would parse package.json here
-		_ = pkgFile
+		data, err := os.ReadFile(pkgFile)
+		if err == nil {
+			deps = parsePackageJSON(string(data))
+		}
+
+	case "ruby":
+		gemFile := filepath.Join(repo.LocalPath, "Gemfile")
+		data, err := os.ReadFile(gemFile)
+		if err == nil {
+			deps = parseGemfile(string(data))
+		}
+
+	case "java":
+		// Try pom.xml
+		pomFile := filepath.Join(repo.LocalPath, "pom.xml")
+		data, err := os.ReadFile(pomFile)
+		if err == nil {
+			deps = parsePomXML(string(data))
+		}
+		// Try build.gradle
+		if len(deps) == 0 {
+			gradleFile := filepath.Join(repo.LocalPath, "build.gradle")
+			data, err := os.ReadFile(gradleFile)
+			if err == nil {
+				deps = parseBuildGradle(string(data))
+			}
+		}
+
+	case "rust":
+		cargoFile := filepath.Join(repo.LocalPath, "Cargo.toml")
+		data, err := os.ReadFile(cargoFile)
+		if err == nil {
+			deps = parseCargoToml(string(data))
+		}
 	}
 
 	repo.Dependencies = deps
@@ -786,4 +1005,213 @@ func parseRequirementsTxt(content string) []Dependency {
 	}
 
 	return deps
+}
+
+func parsePipfile(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	lines := strings.Split(content, "\n")
+	inPackages := false
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[packages]") {
+			inPackages = true
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
+			inPackages = false
+		}
+		if inPackages && strings.Contains(line, "=") {
+			parts := strings.Split(line, "=")
+			if len(parts) >= 2 {
+				name := strings.TrimSpace(parts[0])
+				version := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
+				deps = append(deps, Dependency{
+					Name:    name,
+					Version: version,
+					Type:    "direct",
+				})
+			}
+		}
+	}
+
+	return deps
+}
+
+func parsePackageJSON(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	
+	// Simple JSON parsing for dependencies
+	lines := strings.Split(content, "\n")
+	inDeps := false
+	
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.Contains(trimmed, "\"dependencies\"") || strings.Contains(trimmed, "\"devDependencies\"") {
+			inDeps = true
+			continue
+		}
+		if inDeps && trimmed == "}" {
+			inDeps = false
+			continue
+		}
+		if inDeps && strings.Contains(trimmed, ":") {
+			// Parse "package": "^1.2.3"
+			parts := strings.Split(trimmed, ":")
+			if len(parts) >= 2 {
+				name := strings.Trim(strings.TrimSpace(parts[0]), "\",")
+				version := strings.Trim(strings.TrimSpace(parts[1]), "\",^~")
+				deps = append(deps, Dependency{
+					Name:    name,
+					Version: version,
+					Type:    "direct",
+				})
+			}
+		}
+	}
+
+	return deps
+}
+
+func parseGemfile(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "gem ") {
+			// Parse gem 'name', '~> 1.2.3'
+			parts := strings.Split(line, "'")
+			if len(parts) >= 2 {
+				name := parts[1]
+				version := ""
+				if len(parts) >= 4 {
+					version = strings.TrimSpace(parts[3])
+					version = strings.TrimPrefix(version, "~> ")
+				}
+				deps = append(deps, Dependency{
+					Name:    name,
+					Version: version,
+					Type:    "direct",
+				})
+			}
+		}
+	}
+
+	return deps
+}
+
+func parsePomXML(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	lines := strings.Split(content, "\n")
+
+	var currentName, currentVersion string
+	inDependency := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.Contains(trimmed, "<dependency>") {
+			inDependency = true
+			currentName = ""
+			currentVersion = ""
+		}
+		if strings.Contains(trimmed, "</dependency>") {
+			if currentName != "" {
+				deps = append(deps, Dependency{
+					Name:    currentName,
+					Version: currentVersion,
+					Type:    "direct",
+				})
+			}
+			inDependency = false
+		}
+		if inDependency {
+			if strings.Contains(trimmed, "<artifactId>") {
+				currentName = extractXMLValue(trimmed, "artifactId")
+			}
+			if strings.Contains(trimmed, "<version>") {
+				currentVersion = extractXMLValue(trimmed, "version")
+			}
+		}
+	}
+
+	return deps
+}
+
+func parseBuildGradle(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Parse implementation 'group:artifact:version'
+		if strings.Contains(trimmed, "implementation") || 
+		   strings.Contains(trimmed, "compile") ||
+		   strings.Contains(trimmed, "api") {
+			if strings.Contains(trimmed, "'") || strings.Contains(trimmed, "\"") {
+				parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+					return r == '\'' || r == '"'
+				})
+				if len(parts) >= 2 {
+					depParts := strings.Split(parts[1], ":")
+					if len(depParts) >= 2 {
+						name := depParts[0] + ":" + depParts[1]
+						version := ""
+						if len(depParts) >= 3 {
+							version = depParts[2]
+						}
+						deps = append(deps, Dependency{
+							Name:    name,
+							Version: version,
+							Type:    "direct",
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return deps
+}
+
+func parseCargoToml(content string) []Dependency {
+	deps := make([]Dependency, 0)
+	lines := strings.Split(content, "\n")
+	inDeps := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[dependencies]") {
+			inDeps = true
+			continue
+		}
+		if strings.HasPrefix(trimmed, "[") {
+			inDeps = false
+		}
+		if inDeps && strings.Contains(trimmed, "=") {
+			parts := strings.Split(trimmed, "=")
+			if len(parts) >= 2 {
+				name := strings.TrimSpace(parts[0])
+				version := strings.Trim(strings.TrimSpace(parts[1]), "\"'{}")
+				deps = append(deps, Dependency{
+					Name:    name,
+					Version: version,
+					Type:    "direct",
+				})
+			}
+		}
+	}
+
+	return deps
+}
+
+func extractXMLValue(line, tag string) string {
+	openTag := "<" + tag + ">"
+	closeTag := "</" + tag + ">"
+	start := strings.Index(line, openTag)
+	end := strings.Index(line, closeTag)
+	if start >= 0 && end > start {
+		return line[start+len(openTag) : end]
+	}
+	return ""
 }

@@ -54,47 +54,77 @@ func (g *Generator) buildDiagramData(repo *scanner.Repository, threats []*models
 		},
 	}
 
-	// Convert assets to nodes
-	nodeMap := make(map[string]bool)
-	for _, asset := range repo.Assets {
-		if nodeMap[asset.ID] {
-			continue // Skip duplicates
+	// Group assets by type and location to create meaningful nodes
+	assetGroups := g.groupAssets(repo.Assets)
+	
+	// Convert asset groups to nodes
+	nodeIDMap := make(map[string]string) // Maps asset ID to node ID
+	
+	for groupKey, assets := range assetGroups {
+		if len(assets) == 0 {
+			continue
 		}
-		nodeMap[asset.ID] = true
+
+		// Use first asset as representative
+		asset := assets[0]
+		nodeID := groupKey
 
 		node := Node{
-			ID:          asset.ID,
-			Label:       asset.Name,
+			ID:          nodeID,
+			Label:       g.generateNodeLabel(asset.Type, assets),
 			Type:        mapAssetTypeToNodeType(asset.Type),
-			RiskLevel:   calculateAssetRisk(asset, threats),
-			Description: asset.Description,
+			RiskLevel:   calculateGroupRisk(assets, threats),
+			Description: g.generateNodeDescription(assets),
 			Threats:     make([]string, 0),
 			Findings:    make([]Finding, 0),
 		}
 
-		// Find related threats
-		for _, threat := range threats {
-			// Simple matching - in real implementation, use proper threat mapper
-			if isAssetAffected(asset, threat) {
-				node.Threats = append(node.Threats, threat.ID)
-				node.Findings = append(node.Findings, convertThreatToFinding(threat))
+		// Map all assets in this group to this node
+		for _, a := range assets {
+			nodeIDMap[a.ID] = nodeID
+		}
+
+		// Find related threats for any asset in the group
+		threatMap := make(map[string]bool)
+		for _, a := range assets {
+			for _, threat := range threats {
+				if isAssetAffected(a, threat) && !threatMap[threat.ID] {
+					threatMap[threat.ID] = true
+					node.Threats = append(node.Threats, threat.ID)
+					node.Findings = append(node.Findings, convertThreatToFinding(threat))
+				}
 			}
 		}
 
 		diagram.Nodes = append(diagram.Nodes, node)
 	}
 
-	// Convert data flows to edges
+	// Convert data flows to edges with proper node references
+	edgeMap := make(map[string]bool) // Deduplicate edges
 	for _, flow := range repo.DataFlows {
+		// Find the source and target asset IDs
+		sourceNodeID := findNodeForLocation(flow.Source, nodeIDMap, repo.Assets)
+		targetNodeID := findNodeForLocation(flow.Destination, nodeIDMap, repo.Assets)
+
+		if sourceNodeID == "" || targetNodeID == "" {
+			continue // Skip if we can't find nodes
+		}
+
+		edgeKey := sourceNodeID + "->" + targetNodeID
+		if edgeMap[edgeKey] {
+			continue // Skip duplicate edges
+		}
+		edgeMap[edgeKey] = true
+
 		edge := Edge{
-			ID:        flow.ID,
-			Source:    flow.Source.File + ":" + fmt.Sprint(flow.Source.Line),
-			Target:    flow.Destination.File + ":" + fmt.Sprint(flow.Destination.Line),
-			Label:     flow.DataType,
+			ID:        fmt.Sprintf("edge-%s-%s", sourceNodeID, targetNodeID),
+			Source:    sourceNodeID,
+			Target:    targetNodeID,
+			Label:     g.generateEdgeLabel(flow),
 			DataType:  flow.DataType,
 			Sensitive: flow.Sensitive,
-			Encrypted: false, // Would need to infer from code analysis
-			Protocols: make([]string, 0),
+			Encrypted: detectEncryption(flow, repo.Assets),
+			Protocols: inferProtocols(flow),
 			Threats:   flow.Threats,
 		}
 		diagram.Edges = append(diagram.Edges, edge)
@@ -109,6 +139,141 @@ func (g *Generator) buildDiagramData(repo *scanner.Repository, threats []*models
 	diagram.Metadata.TotalThreats = len(threats)
 
 	return diagram
+}
+
+// groupAssets groups assets by type and file for better visualization
+func (g *Generator) groupAssets(assets []scanner.Asset) map[string][]scanner.Asset {
+	groups := make(map[string][]scanner.Asset)
+
+	for _, asset := range assets {
+		// Group by type and file directory
+		dir := strings.Split(asset.Location.File, "/")[0]
+		groupKey := fmt.Sprintf("%s-%s", asset.Type, dir)
+		groups[groupKey] = append(groups[groupKey], asset)
+	}
+
+	return groups
+}
+
+// generateNodeLabel creates a descriptive label for a node
+func (g *Generator) generateNodeLabel(assetType scanner.AssetType, assets []scanner.Asset) string {
+	count := len(assets)
+	
+	switch assetType {
+	case scanner.AssetAPI:
+		if count == 1 {
+			return assets[0].Name
+		}
+		return fmt.Sprintf("API Endpoints (%d)", count)
+	case scanner.AssetDatabase:
+		return fmt.Sprintf("Database Operations (%d)", count)
+	case scanner.AssetAuth:
+		return fmt.Sprintf("Authentication (%d)", count)
+	case scanner.AssetSecret:
+		return fmt.Sprintf("Secrets/Config (%d)", count)
+	case scanner.AssetFileSystem:
+		return fmt.Sprintf("File Operations (%d)", count)
+	case scanner.AssetNetwork:
+		return fmt.Sprintf("External APIs (%d)", count)
+	case scanner.AssetCache:
+		return fmt.Sprintf("Cache (%d)", count)
+	case scanner.AssetQueue:
+		return fmt.Sprintf("Message Queue (%d)", count)
+	case scanner.AssetCrypto:
+		return fmt.Sprintf("Cryptography (%d)", count)
+	default:
+		return fmt.Sprintf("%s (%d)", assetType, count)
+	}
+}
+
+// generateNodeDescription creates a detailed description
+func (g *Generator) generateNodeDescription(assets []scanner.Asset) string {
+	if len(assets) == 1 {
+		return assets[0].Description
+	}
+	
+	files := make(map[string]bool)
+	for _, a := range assets {
+		files[a.Location.File] = true
+	}
+	
+	return fmt.Sprintf("%d assets across %d files", len(assets), len(files))
+}
+
+// generateEdgeLabel creates a descriptive edge label
+func (g *Generator) generateEdgeLabel(flow scanner.DataFlow) string {
+	label := flow.DataType
+	
+	// Add sensitivity indicator
+	if flow.Sensitive {
+		label = "🔒 " + label
+	}
+	
+	// Add threat count if any
+	if len(flow.Threats) > 0 {
+		label = fmt.Sprintf("%s (%d threats)", label, len(flow.Threats))
+	}
+	
+	return label
+}
+
+// findNodeForLocation finds the node ID that contains a given location
+func findNodeForLocation(loc scanner.Location, nodeIDMap map[string]string, assets []scanner.Asset) string {
+	// Find asset at this location
+	for _, asset := range assets {
+		if asset.Location.File == loc.File && asset.Location.Line == loc.Line {
+			if nodeID, ok := nodeIDMap[asset.ID]; ok {
+				return nodeID
+			}
+		}
+	}
+	return ""
+}
+
+// detectEncryption checks if the flow involves encryption
+func detectEncryption(flow scanner.DataFlow, assets []scanner.Asset) bool {
+	// Check if either source or destination involves crypto
+	for _, asset := range assets {
+		if (asset.Location == flow.Source || asset.Location == flow.Destination) &&
+			asset.Type == scanner.AssetCrypto {
+			return true
+		}
+	}
+	return false
+}
+
+// inferProtocols infers communication protocols from data type
+func inferProtocols(flow scanner.DataFlow) []string {
+	protocols := make([]string, 0)
+	
+	dataType := strings.ToLower(flow.DataType)
+	
+	if strings.Contains(dataType, "http") || strings.Contains(dataType, "api") {
+		protocols = append(protocols, "HTTP")
+	}
+	if strings.Contains(dataType, "sql") || strings.Contains(dataType, "database") {
+		protocols = append(protocols, "SQL")
+	}
+	if strings.Contains(dataType, "queue") || strings.Contains(dataType, "message") {
+		protocols = append(protocols, "AMQP")
+	}
+	
+	return protocols
+}
+
+// calculateGroupRisk calculates risk for a group of assets
+func calculateGroupRisk(assets []scanner.Asset, threats []*models.Threat) RiskLevel {
+	maxRisk := RiskLow
+
+	// Check each asset in the group
+	for _, asset := range assets {
+		assetRisk := calculateAssetRisk(asset, threats)
+		if assetRisk > maxRisk {
+			maxRisk = assetRisk
+		}
+	}
+
+	return maxRisk
 }
 
 // generateHTML generates the complete HTML file
