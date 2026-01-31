@@ -79,7 +79,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Handler: mux,
 	}
 
-	log.Printf("🚀 ATIP Dashboard starting on http://%s", s.addr)
+	log.Printf("🚀 TITO Dashboard starting on http://%s", s.addr)
 	log.Printf("📊 View dashboard: http://%s", s.addr)
 
 	// Start server

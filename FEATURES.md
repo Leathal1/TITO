@@ -78,11 +78,11 @@ New command-line flags for all features.
 
 **New Flags:**
 ```bash
-atip scan --repo <url> --maestro      # MAESTRO analysis
-atip scan --repo <url> --semgrep      # Semgrep static analysis
-atip scan --repo <url> --dataflow     # Generate visualization
-atip scan --repo <url> --mitre        # ATT&CK enrichment
-atip scan --repo <url> --output file  # Custom output path
+tito scan --repo <url> --maestro      # MAESTRO analysis
+tito scan --repo <url> --semgrep      # Semgrep static analysis
+tito scan --repo <url> --dataflow     # Generate visualization
+tito scan --repo <url> --mitre        # ATT&CK enrichment
+tito scan --repo <url> --output file  # Custom output path
 ```
 
 **Enhanced Workflow:**
@@ -114,7 +114,7 @@ pkg/collectors - (existing) PASS
 
 ### Basic scan with all features:
 ```bash
-atip scan --repo https://github.com/user/repo \
+tito scan --repo https://github.com/user/repo \
   --maestro \
   --semgrep \
   --mitre \
@@ -124,14 +124,14 @@ atip scan --repo https://github.com/user/repo \
 
 ### MAESTRO-only analysis for AI systems:
 ```bash
-atip scan --repo https://github.com/user/ai-agent \
+tito scan --repo https://github.com/user/ai-agent \
   --maestro \
   --dataflow
 ```
 
 ### Security audit with Semgrep + MITRE:
 ```bash
-atip scan --repo https://github.com/user/api \
+tito scan --repo https://github.com/user/api \
   --semgrep \
   --mitre
 ```

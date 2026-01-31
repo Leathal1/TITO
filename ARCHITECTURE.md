@@ -1,19 +1,19 @@
-# ATIP Architecture
+# TITO Architecture
 
 ## Philosophy
 
-ATIP is not another security dashboard. It's an **intelligence organism** designed to transform raw threat data into actionable clarity for defenders making critical decisions under pressure.
+TITO is not another security dashboard. It's an **intelligence organism** designed to transform raw threat data into actionable clarity for defenders making critical decisions under pressure.
 
 ## Design Principles
 
 ### 1. Think Like an Adversary
-Every threat represents intent to cause harm. ATIP maps adversarial tradecraft to defender mental models through the STRIDE-LM framework.
+Every threat represents intent to cause harm. TITO maps adversarial tradecraft to defender mental models through the STRIDE-LM framework.
 
 ### 2. Signal Over Noise
 Aggressive deduplication, intelligent scoring, and context-aware filtering ensure analysts see only what matters. Every alert that reaches a human deserves to reach a human.
 
 ### 3. Context is King
-Raw indicators are useless without context. ATIP enriches every threat with:
+Raw indicators are useless without context. TITO enriches every threat with:
 - Asset relevance (affects YOUR stack?)
 - Attack surface mapping
 - Active exploitation status
@@ -26,7 +26,7 @@ Feedback loops are first-class citizens. Analyst actions train the scoring syste
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     ATIP ARCHITECTURE                       │
+│                     TITO ARCHITECTURE                       │
 └─────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
@@ -88,7 +88,7 @@ Feedback loops are first-class citizens. Analyst actions train the scoring syste
 
 ## Core Components
 
-### 1. Collectors (`atip/collectors/`)
+### 1. Collectors (`tito/collectors/`)
 
 **Purpose:** Breathe in chaos from external sources.
 
@@ -104,7 +104,7 @@ Feedback loops are first-class citizens. Analyst actions train the scoring syste
 - `cve/nvd_collector.py` - NVD CVE collector
 - `osint/osint_collector.py` - OSINT feeds collector
 
-### 2. STRIDE-LM Engine (`atip/core/stride_lm/`)
+### 2. STRIDE-LM Engine (`tito/core/stride_lm/`)
 
 **Purpose:** The lens through which all threats are viewed.
 
@@ -125,7 +125,7 @@ Feedback loops are first-class citizens. Analyst actions train the scoring syste
 3. **MITRE ATT&CK (20%)** - Tactic/technique mapping
 4. **Context heuristics (10%)** - Additional contextual signals
 
-### 3. Data Models (`atip/core/models/`)
+### 3. Data Models (`tito/core/models/`)
 
 **Purpose:** Intelligence, not data.
 
@@ -145,7 +145,7 @@ priority = (
 )
 ```
 
-### 4. Processing Pipeline (`atip/core/pipeline/`)
+### 4. Processing Pipeline (`tito/core/pipeline/`)
 
 **Purpose:** Transform raw threats into refined intelligence.
 
@@ -162,7 +162,7 @@ priority = (
 - Others: dedupe by title similarity
 - On duplicate: merge into existing with updated info
 
-### 5. Dissemination (`atip/dissemination/`)
+### 5. Dissemination (`tito/dissemination/`)
 
 **Purpose:** Deliver intelligence in usable formats.
 
@@ -172,7 +172,7 @@ priority = (
 - **Alerts** - Real-time notifications (email, Slack, webhooks)
 - **CLI** - Command-line interface for operators
 
-### 6. Configuration (`atip/config/`)
+### 6. Configuration (`tito/config/`)
 
 **Purpose:** Sensible defaults, progressive disclosure.
 
@@ -265,7 +265,7 @@ class MyCollector(ScheduledCollector):
 
 ### Adding a New Report Format
 
-1. Create generator in `atip/dissemination/reports/`
+1. Create generator in `tito/dissemination/reports/`
 2. Implement `generate(threats: List[Threat])`
 3. Add to CLI options
 

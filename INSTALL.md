@@ -1,4 +1,4 @@
-# ATIP Installation Guide
+# TITO Installation Guide
 
 ## Quick Start
 
@@ -24,28 +24,28 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. **Install ATIP**
+3. **Install TITO**
 
 ```bash
 pip install -e .
 ```
 
-This installs ATIP in editable mode with all dependencies.
+This installs TITO in editable mode with all dependencies.
 
 4. **Verify installation**
 
 ```bash
-atip --help
+tito --help
 ```
 
-You should see the ATIP CLI help message.
+You should see the TITO CLI help message.
 
 ## Configuration
 
 1. **Create configuration file**
 
 ```bash
-atip init-config
+tito init-config
 ```
 
 This creates a `config.yaml` file in the current directory with default settings.
@@ -67,7 +67,7 @@ nano config.yaml  # or vim, code, etc.
 export NVD_API_KEY="your-api-key-here"
 
 # Database connection (if using PostgreSQL)
-export DATABASE_URL="postgresql://user:pass@localhost/atip"
+export DATABASE_URL="postgresql://user:pass@localhost/tito"
 
 # Log level
 export LOG_LEVEL="INFO"
@@ -81,38 +81,38 @@ Get an NVD API key from: https://nvd.nist.gov/developers/request-an-api-key
 
 ```bash
 # Run all collectors
-atip collect --all
+tito collect --all
 
 # Run specific collectors
-atip collect --nvd
-atip collect --osint
-atip collect --nvd --osint
+tito collect --nvd
+tito collect --osint
+tito collect --nvd --osint
 ```
 
 ### Generate Reports
 
 ```bash
 # Generate markdown report
-atip report
+tito report
 
 # Generate JSON report
-atip report -f json -o report.json
+tito report -f json -o report.json
 
 # Generate from saved threats
-atip collect --all --output threats.json
-atip report -i threats.json
+tito collect --all --output threats.json
+tito report -i threats.json
 ```
 
 ### Check System Status
 
 ```bash
-atip status
+tito status
 ```
 
 ### Start API Server
 
 ```bash
-atip serve --host 0.0.0.0 --port 8080
+tito serve --host 0.0.0.0 --port 8080
 ```
 
 ## Development Installation
@@ -137,13 +137,13 @@ pytest
 ### Code Formatting
 
 ```bash
-black atip/
+black tito/
 ```
 
 ### Type Checking
 
 ```bash
-mypy atip/
+mypy tito/
 ```
 
 ## Optional Dependencies
@@ -166,7 +166,7 @@ pip install ".[postgres]"
 
 ## Running the Demo
 
-Try the demonstration script to see ATIP in action:
+Try the demonstration script to see TITO in action:
 
 ```bash
 python examples/demo.py
@@ -181,7 +181,7 @@ This demonstrates:
 
 ### Import Errors
 
-If you get import errors, ensure ATIP is installed:
+If you get import errors, ensure TITO is installed:
 
 ```bash
 pip install -e .
@@ -224,10 +224,10 @@ Docker support is planned for future releases:
 
 ```bash
 # Build image
-docker build -t atip:latest .
+docker build -t tito:latest .
 
 # Run container
-docker run -p 8080:8080 atip:latest
+docker run -p 8080:8080 tito:latest
 ```
 
 ## Production Deployment
@@ -246,15 +246,15 @@ Example systemd service file:
 
 ```ini
 [Unit]
-Description=ATIP Threat Intelligence Platform
+Description=TITO Threat Intelligence Platform
 After=network.target
 
 [Service]
 Type=simple
-User=atip
-WorkingDirectory=/opt/atip
-Environment="ATIP_CONFIG=/etc/atip/config.yaml"
-ExecStart=/opt/atip/venv/bin/atip serve
+User=tito
+WorkingDirectory=/opt/tito
+Environment="TITO_CONFIG=/etc/tito/config.yaml"
+ExecStart=/opt/tito/venv/bin/tito serve
 Restart=always
 
 [Install]
@@ -263,7 +263,7 @@ WantedBy=multi-user.target
 
 ## Upgrading
 
-To upgrade ATIP:
+To upgrade TITO:
 
 ```bash
 git pull origin main
@@ -272,25 +272,25 @@ pip install -e . --upgrade
 
 ## Uninstallation
 
-To remove ATIP:
+To remove TITO:
 
 ```bash
-pip uninstall atip
+pip uninstall tito
 ```
 
 ## Getting Help
 
 - Documentation: See README.md and ARCHITECTURE.md
 - Issues: Report at https://github.com/yourusername/TITO/issues
-- CLI help: `atip --help`
+- CLI help: `tito --help`
 
 ---
 
 **Next Steps After Installation:**
 
-1. Run `atip status` to verify configuration
-2. Run `atip collect --all` to collect initial threats
-3. Run `atip report` to generate your first intelligence report
+1. Run `tito status` to verify configuration
+2. Run `tito collect --all` to collect initial threats
+3. Run `tito report` to generate your first intelligence report
 4. Explore `examples/demo.py` to understand the system
 
-*Welcome to ATIP - Let's transform chaos into clarity.*
+*Welcome to TITO - Let's transform chaos into clarity.*

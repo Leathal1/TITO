@@ -17,7 +17,7 @@ cd /Users/stevenleath/TITO
 go build ./cmd/tito
 
 # Verify installation
-./atip version
+./tito version
 ```
 
 ## Basic Usage
@@ -25,7 +25,7 @@ go build ./cmd/tito
 ### 1. Scan with All Features
 
 ```bash
-./atip scan \
+./tito scan \
   --repo https://github.com/user/repository \
   --maestro \
   --semgrep \
@@ -44,7 +44,7 @@ This will:
 ### 2. AI/Agent Systems (MAESTRO Focus)
 
 ```bash
-./atip scan \
+./tito scan \
   --repo https://github.com/user/ai-agent \
   --maestro \
   --dataflow
@@ -59,7 +59,7 @@ Best for:
 ### 3. Traditional Apps (STRIDE-LM + Semgrep)
 
 ```bash
-./atip scan \
+./tito scan \
   --repo https://github.com/user/web-app \
   --semgrep \
   --mitre
@@ -76,7 +76,7 @@ Best for:
 ### Console Output
 
 ```
-🔍 ATIP Repository Scanner
+🔍 TITO Repository Scanner
 ==================================================
 
 📂 Cloning repository: https://github.com/user/repo
@@ -125,7 +125,7 @@ Top 5 Threats:
 
 💡 Next steps:
    Open threat-model.html in your browser
-   atip dashboard                     # Launch web dashboard
+   tito dashboard                     # Launch web dashboard
 ```
 
 ### Interactive Diagram
@@ -209,7 +209,7 @@ brew install semgrep
 ### Custom Semgrep Rules
 ```bash
 # Create custom rules in .semgrep/
-./atip scan --repo <url> --semgrep
+./tito scan --repo <url> --semgrep
 ```
 
 ### Export Data Flow Diagram
@@ -221,10 +221,10 @@ brew install semgrep
 ### Combine with Dashboard
 ```bash
 # Run scan first
-./atip scan --repo <url> --maestro --semgrep
+./tito scan --repo <url> --maestro --semgrep
 
 # Launch dashboard
-./atip dashboard --port 8080
+./tito dashboard --port 8080
 ```
 
 ## Next Steps
@@ -237,6 +237,6 @@ brew install semgrep
 ---
 
 **Need Help?**
-- Check `./atip --help` for all commands
+- Check `./tito --help` for all commands
 - See `FEATURES.md` for technical details
 - Review test files for usage examples

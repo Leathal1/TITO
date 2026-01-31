@@ -80,7 +80,7 @@ var initConfigCmd = &cobra.Command{
 		}
 
 		fmt.Printf("✓ Created configuration file at %s\n", output)
-		fmt.Println("  Edit this file to customize ATIP settings")
+		fmt.Println("  Edit this file to customize TITO settings")
 		return nil
 	},
 }
@@ -95,9 +95,9 @@ var collectCmd = &cobra.Command{
 	Long: `Collect threat intelligence from configured sources.
 
 Examples:
-  atip collect --all              # Run all collectors
-  atip collect --nvd              # Run only NVD collector
-  atip collect --nvd --osint      # Run specific collectors`,
+  tito collect --all              # Run all collectors
+  tito collect --nvd              # Run only NVD collector
+  tito collect --nvd --osint      # Run specific collectors`,
 	RunE: runCollect,
 }
 
@@ -203,8 +203,8 @@ var reportCmd = &cobra.Command{
 	Long: `Generate a threat intelligence report from collected threats.
 
 Examples:
-  atip report                          # Generate markdown report
-  atip report -f json -o report.json   # Generate JSON report`,
+  tito report                          # Generate markdown report
+  tito report -f json -o report.json   # Generate JSON report`,
 	RunE: runReport,
 }
 
@@ -308,8 +308,8 @@ var scanCmd = &cobra.Command{
 and map threats to specific code locations.
 
 Examples:
-  atip scan --repo https://github.com/user/repo
-  atip scan --repo https://github.com/user/repo --branch main`,
+  tito scan --repo https://github.com/user/repo
+  tito scan --repo https://github.com/user/repo --branch main`,
 	RunE: runScan,
 }
 
@@ -563,7 +563,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 var dashboardCmd = &cobra.Command{
 	Use:   "dashboard",
 	Short: "Start the web dashboard",
-	Long: `Start the ATIP web dashboard to visualize threats, assets, and data flows.
+	Long: `Start the TITO web dashboard to visualize threats, assets, and data flows.
 
 The dashboard provides:
 - Interactive data flow visualization
@@ -572,8 +572,8 @@ The dashboard provides:
 - Mitigation recommendations
 
 Examples:
-  atip dashboard
-  atip dashboard --port 8080`,
+  tito dashboard
+  tito dashboard --port 8080`,
 	RunE: runDashboard,
 }
 

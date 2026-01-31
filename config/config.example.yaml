@@ -1,4 +1,4 @@
-# ATIP Configuration Example
+# TITO Configuration Example
 # Copy this to config.yaml and customize
 
 collectors:
@@ -26,8 +26,8 @@ pipeline:
 # Storage Configuration
 storage:
   type: sqlite  # sqlite, postgresql
-  path: atip.db  # For SQLite
-  # connection_string: postgresql://user:pass@localhost/atip  # For PostgreSQL
+  path: tito.db  # For SQLite
+  # connection_string: postgresql://user:pass@localhost/tito  # For PostgreSQL
 
 # API Server Configuration
 api:
