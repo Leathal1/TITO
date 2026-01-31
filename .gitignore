@@ -31,3 +31,10 @@ logs/
 .env
 credentials.json
 api_keys.txt
+
+# Build artifacts
+dist/
+atip
+coverage.out
+coverage.html
+work/

@@ -297,80 +297,325 @@ func (s *Scanner) discoverAssets(ctx context.Context, repo *Repository) error {
 // scanFileForAssets scans a file for assets
 func (s *Scanner) scanFileForAssets(filePath, content, language string) []Asset {
 	assets := make([]Asset, 0)
-
 	lines := strings.Split(content, "\n")
+	lowerContent := strings.ToLower(content)
 
 	for lineNum, line := range lines {
-		// API endpoints
-		if strings.Contains(line, "http.HandleFunc") ||
-			strings.Contains(line, ".GET(") ||
-			strings.Contains(line, ".POST(") ||
-			strings.Contains(line, "@app.route") ||
-			strings.Contains(line, "@router") {
+		lowerLine := strings.ToLower(line)
+		trimmedLine := strings.TrimSpace(line)
 
-			assets = append(assets, Asset{
-				ID:       fmt.Sprintf("api-%s-%d", filePath, lineNum),
-				Type:     AssetAPI,
-				Name:     extractAPIPath(line),
-				Location: Location{File: filePath, Line: lineNum + 1},
-				Exposed:  true,
-				Tags:     []string{"http", "endpoint"},
-			})
+		// Skip comments and empty lines
+		if trimmedLine == "" || strings.HasPrefix(trimmedLine, "//") || strings.HasPrefix(trimmedLine, "#") {
+			continue
 		}
 
-		// Database operations
-		if strings.Contains(line, "db.Query") ||
-			strings.Contains(line, "db.Exec") ||
-			strings.Contains(line, "SELECT") ||
-			strings.Contains(line, "INSERT") ||
-			strings.Contains(line, "UPDATE") ||
-			strings.Contains(line, "DELETE FROM") {
-
-			assets = append(assets, Asset{
-				ID:        fmt.Sprintf("db-%s-%d", filePath, lineNum),
-				Type:      AssetDatabase,
-				Name:      "Database Operation",
-				Location:  Location{File: filePath, Line: lineNum + 1},
-				Sensitive: true,
-				Tags:      []string{"database", "sql"},
-			})
+		// API Endpoints - extensive patterns
+		apiPatterns := []string{
+			"http.HandleFunc", "http.Handle", "mux.HandleFunc",
+			"router.GET", "router.POST", "router.PUT", "router.DELETE", "router.PATCH",
+			".GET(", ".POST(", ".PUT(", ".DELETE(", ".PATCH(",
+			"app.get", "app.post", "app.put", "app.delete", "app.patch",
+			"@app.route", "@router", "@GetMapping", "@PostMapping", "@PutMapping", "@DeleteMapping",
+			"@RequestMapping", "Route(", "MapGet", "MapPost",
+			"express.get", "express.post", "fastapi", "flask.route",
+		}
+		for _, pattern := range apiPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("api-%s-%d", filePath, lineNum),
+					Type:        AssetAPI,
+					Name:        extractAPIPath(line),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("HTTP endpoint: %s", trimmedLine),
+					Exposed:     true,
+					Sensitive:   detectSensitiveContext(line),
+					Tags:        []string{"http", "endpoint", "api"},
+				})
+				break
+			}
 		}
 
-		// Authentication
-		if strings.Contains(line, "auth") ||
-			strings.Contains(line, "login") ||
-			strings.Contains(line, "password") ||
-			strings.Contains(line, "jwt") ||
-			strings.Contains(line, "token") {
-
-			assets = append(assets, Asset{
-				ID:        fmt.Sprintf("auth-%s-%d", filePath, lineNum),
-				Type:      AssetAuth,
-				Name:      "Authentication Point",
-				Location:  Location{File: filePath, Line: lineNum + 1},
-				Sensitive: true,
-				Tags:      []string{"auth", "security"},
-			})
+		// Database connections and queries
+		dbPatterns := []string{
+			"db.Query", "db.Exec", "db.Prepare", "database/sql",
+			"sqlx.", "gorm", ".Create(", ".Save(", ".Update(", ".Delete(",
+			"mongoose.connect", "mongoose.model", "Schema(",
+			"pg.connect", "psycopg2", "pymongo", "redis.client",
+			"SELECT ", "INSERT ", "UPDATE ", "DELETE FROM", "CREATE TABLE",
+			"DROP TABLE", "ALTER TABLE", "TRUNCATE",
+			"sql.Open", "sql.DB", "Sequelize", "TypeORM",
+		}
+		for _, pattern := range dbPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("db-%s-%d", filePath, lineNum),
+					Type:        AssetDatabase,
+					Name:        extractDatabaseOperation(line),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Database operation: %s", trimmedLine),
+					Sensitive:   true,
+					Tags:        []string{"database", "sql", "persistence"},
+				})
+				break
+			}
 		}
 
-		// Secrets (potential)
-		if strings.Contains(line, "API_KEY") ||
-			strings.Contains(line, "SECRET") ||
-			strings.Contains(line, "PASSWORD") ||
-			strings.Contains(line, "private_key") {
+		// Authentication and authorization
+		authPatterns := []string{
+			"jwt.sign", "jwt.verify", "jsonwebtoken", "passport",
+			"bcrypt", "scrypt", "argon2", "pbkdf2",
+			"OAuth", "oauth2", "openid", "saml",
+			".Authenticate", "CheckPassword", "ValidateToken",
+			"middleware.Auth", "@RequiresAuth", "@Secured",
+			"session.set", "session.get", "express-session",
+			".login", ".logout", ".signin", ".signout",
+		}
+		for _, pattern := range authPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("auth-%s-%d", filePath, lineNum),
+					Type:        AssetAuth,
+					Name:        extractAuthMethod(line),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Authentication: %s", trimmedLine),
+					Sensitive:   true,
+					Tags:        []string{"auth", "security", "identity"},
+				})
+				break
+			}
+		}
 
-			assets = append(assets, Asset{
-				ID:        fmt.Sprintf("secret-%s-%d", filePath, lineNum),
-				Type:      AssetSecret,
-				Name:      "Potential Secret",
-				Location:  Location{File: filePath, Line: lineNum + 1},
-				Sensitive: true,
-				Tags:      []string{"secret", "credential"},
-			})
+		// File I/O operations
+		filePatterns := []string{
+			"os.Open", "os.Create", "os.ReadFile", "os.WriteFile",
+			"ioutil.ReadFile", "ioutil.WriteFile",
+			"fs.readFile", "fs.writeFile", "fs.createReadStream",
+			"open(", "file.open", "with open",
+			"FileReader", "FileWriter", "BufferedReader",
+			"upload", "multipart", "formidable",
+		}
+		for _, pattern := range filePatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("file-%s-%d", filePath, lineNum),
+					Type:        AssetFileSystem,
+					Name:        "File Operation",
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("File I/O: %s", trimmedLine),
+					Sensitive:   strings.Contains(lowerLine, "upload") || strings.Contains(lowerLine, "write"),
+					Tags:        []string{"file", "io", "storage"},
+				})
+				break
+			}
+		}
+
+		// External API calls
+		externalAPIPatterns := []string{
+			"http.Get", "http.Post", "http.Client",
+			"fetch(", "axios.", "request(",
+			"requests.get", "requests.post", "urllib",
+			"HttpClient", "RestTemplate", "WebClient",
+			"curl_exec", "curl_init",
+		}
+		for _, pattern := range externalAPIPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("extapi-%s-%d", filePath, lineNum),
+					Type:        AssetNetwork,
+					Name:        "External API Call",
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("External call: %s", trimmedLine),
+					Exposed:     false,
+					Sensitive:   detectSensitiveContext(line),
+					Tags:        []string{"external", "api", "network"},
+				})
+				break
+			}
+		}
+
+		// Environment variables
+		envPatterns := []string{
+			"os.Getenv", "process.env", "System.getenv",
+			"ENV[", "ENV.fetch", "$ENV{",
+			"dotenv", "envfile", ".env",
+		}
+		for _, pattern := range envPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("env-%s-%d", filePath, lineNum),
+					Type:        AssetSecret,
+					Name:        extractEnvVar(line),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Environment variable: %s", trimmedLine),
+					Sensitive:   true,
+					Tags:        []string{"config", "environment", "secret"},
+				})
+				break
+			}
+		}
+
+		// Secrets and credentials
+		secretPatterns := []string{
+			"api_key", "apikey", "api-key",
+			"secret", "password", "passwd", "pwd",
+			"private_key", "privatekey", "token",
+			"credentials", "auth_token", "access_key",
+			"client_secret", "encryption_key",
+		}
+		for _, pattern := range secretPatterns {
+			if strings.Contains(lowerLine, pattern) && (strings.Contains(line, "=") || strings.Contains(line, ":")) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("secret-%s-%d", filePath, lineNum),
+					Type:        AssetSecret,
+					Name:        fmt.Sprintf("Secret: %s", pattern),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Potential secret: %s", trimmedLine),
+					Sensitive:   true,
+					Tags:        []string{"secret", "credential", "sensitive"},
+				})
+				break
+			}
+		}
+
+		// Message queues
+		queuePatterns := []string{
+			"kafka", "rabbitmq", "amqp",
+			"redis.publish", "redis.subscribe",
+			"sqs", "sns", "pubsub",
+			"messagequeue", "eventbus",
+		}
+		for _, pattern := range queuePatterns {
+			if strings.Contains(lowerLine, pattern) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("queue-%s-%d", filePath, lineNum),
+					Type:        AssetQueue,
+					Name:        fmt.Sprintf("Message Queue: %s", pattern),
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Queue operation: %s", trimmedLine),
+					Tags:        []string{"queue", "messaging", "async"},
+				})
+				break
+			}
+		}
+
+		// Caching
+		cachePatterns := []string{
+			"redis", "memcached", "cache.set", "cache.get",
+			"@Cacheable", "CacheManager",
+		}
+		for _, pattern := range cachePatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:       fmt.Sprintf("cache-%s-%d", filePath, lineNum),
+					Type:     AssetCache,
+					Name:     "Cache Operation",
+					Location: Location{File: filePath, Line: lineNum + 1},
+					Tags:     []string{"cache", "performance"},
+				})
+				break
+			}
+		}
+
+		// Cryptography
+		cryptoPatterns := []string{
+			"crypto/", "cryptography", "cipher",
+			"aes", "rsa", "ecdsa", "hmac",
+			"encrypt", "decrypt", "hash",
+		}
+		for _, pattern := range cryptoPatterns {
+			if strings.Contains(lowerLine, strings.ToLower(pattern)) {
+				assets = append(assets, Asset{
+					ID:          fmt.Sprintf("crypto-%s-%d", filePath, lineNum),
+					Type:        AssetCrypto,
+					Name:        "Cryptographic Operation",
+					Location:    Location{File: filePath, Line: lineNum + 1},
+					Description: fmt.Sprintf("Crypto: %s", trimmedLine),
+					Sensitive:   true,
+					Tags:        []string{"crypto", "security", "encryption"},
+				})
+				break
+			}
+		}
+	}
+
+	// Also scan for .env files
+	if strings.HasSuffix(filePath, ".env") || strings.Contains(filePath, ".env.") {
+		for lineNum, line := range lines {
+			if strings.Contains(line, "=") && !strings.HasPrefix(strings.TrimSpace(line), "#") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					assets = append(assets, Asset{
+						ID:          fmt.Sprintf("envvar-%s-%s", filePath, key),
+						Type:        AssetSecret,
+						Name:        fmt.Sprintf("ENV: %s", key),
+						Location:    Location{File: filePath, Line: lineNum + 1},
+						Description: fmt.Sprintf("Environment variable: %s", key),
+						Sensitive:   true,
+						Tags:        []string{"environment", "config", "secret"},
+					})
+				}
+			}
 		}
 	}
 
 	return assets
+}
+
+// Helper function to detect sensitive context
+func detectSensitiveContext(line string) bool {
+	sensitiveKeywords := []string{
+		"password", "secret", "token", "key", "credential",
+		"auth", "payment", "credit", "ssn", "personal",
+	}
+	lowerLine := strings.ToLower(line)
+	for _, keyword := range sensitiveKeywords {
+		if strings.Contains(lowerLine, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// Extract more specific names
+func extractAuthMethod(line string) string {
+	if strings.Contains(line, "jwt") {
+		return "JWT Authentication"
+	} else if strings.Contains(line, "oauth") {
+		return "OAuth Authentication"
+	} else if strings.Contains(line, "bcrypt") {
+		return "Password Hashing (bcrypt)"
+	} else if strings.Contains(line, "session") {
+		return "Session Management"
+	}
+	return "Authentication"
+}
+
+func extractDatabaseOperation(line string) string {
+	lower := strings.ToLower(line)
+	if strings.Contains(lower, "select") {
+		return "Database Query (SELECT)"
+	} else if strings.Contains(lower, "insert") {
+		return "Database Insert"
+	} else if strings.Contains(lower, "update") {
+		return "Database Update"
+	} else if strings.Contains(lower, "delete") {
+		return "Database Delete"
+	} else if strings.Contains(lower, "connect") {
+		return "Database Connection"
+	}
+	return "Database Operation"
+}
+
+func extractEnvVar(line string) string {
+	// Try to extract the actual variable name
+	if strings.Contains(line, "\"") {
+		parts := strings.Split(line, "\"")
+		if len(parts) >= 2 {
+			return fmt.Sprintf("ENV: %s", parts[1])
+		}
+	}
+	return "Environment Variable"
 }
 
 // analyzeDataFlows analyzes data flows through the code
