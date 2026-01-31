@@ -45,13 +45,14 @@ func main() {
 
 var rootCmd = &cobra.Command{
 	Use:   "tito",
-	Short: "TITO - Advanced Threat Intelligence Platform",
-	Long: `TITO - Advanced Threat Intelligence Platform
+	Short: "TITO - Automated Threat Modeling for Code Repositories",
+	Long: `TITO - Threat In, Threat Out — Automated Threat Modeling
 
-An intelligence organism that transforms chaos into actionable clarity.
+Point TITO at a code repository and get a complete threat model:
+STRIDE-LM classification, MAESTRO AI threat analysis, attack path
+discovery, MITRE ATT&CK mappings, and interactive 3D visualization.
 
-The platform implements the STRIDE-LM framework for threat classification
-and provides intelligent prioritization, enrichment, and reporting.`,
+Single binary. No diagrams to draw. The threat modeler that thinks like an attacker.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		cfg, err = config.LoadOrDefault(cfgFile)
@@ -277,29 +278,49 @@ func runReport(cmd *cobra.Command, args []string) error {
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show TITO system status",
-	Long:  "Display the current status of the TITO system including configuration and collectors",
+	Long:  "Display the current status of TITO including configuration and license tier",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("TITO System Status")
+		fmt.Println("🛡️  TITO System Status")
 		fmt.Println(strings.Repeat("=", 50))
+		fmt.Println()
+
+		// License tier
+		tier := "Free"
+		if license.IsEnterprise() {
+			tier = "Enterprise"
+		} else if license.IsPro() {
+			tier = "Pro"
+		}
+		fmt.Printf("License: %s\n", tier)
 		fmt.Println()
 
 		fmt.Println("Configuration:")
 		fmt.Printf("  Config file: %s\n", getConfigPath())
 		fmt.Println()
 
-		fmt.Println("Collectors:")
+		fmt.Println("Threat Modeling Capabilities:")
+		fmt.Printf("  STRIDE-LM:       ✓ Available\n")
+		fmt.Printf("  2D Visualization: ✓ Available\n")
+		fmt.Printf("  Semgrep SAST:    ✓ Available\n")
+		fmt.Printf("  MITRE ATT&CK:    ✓ Available\n")
+		if license.IsPro() {
+			fmt.Printf("  MAESTRO:         ✓ Available\n")
+			fmt.Printf("  Attack Paths:    ✓ Available\n")
+			fmt.Printf("  3D Visualization: ✓ Available\n")
+			fmt.Printf("  PR Diffing:      ✓ Available\n")
+			fmt.Printf("  Narratives:      ✓ Available\n")
+		} else {
+			fmt.Printf("  MAESTRO:         🔒 Pro\n")
+			fmt.Printf("  Attack Paths:    🔒 Pro\n")
+			fmt.Printf("  3D Visualization: 🔒 Pro\n")
+			fmt.Printf("  PR Diffing:      🔒 Pro\n")
+			fmt.Printf("  Narratives:      🔒 Pro\n")
+		}
+		fmt.Println()
+
+		fmt.Println("Enrichment Sources:")
 		fmt.Printf("  NVD:   %s\n", enabledStatus(cfg.Collectors.NVD.Enabled))
 		fmt.Printf("  OSINT: %s\n", enabledStatus(cfg.Collectors.OSINT.Enabled))
-		fmt.Println()
-
-		fmt.Println("Pipeline:")
-		fmt.Printf("  Min Priority: %.2f\n", cfg.Pipeline.MinPriority)
-		fmt.Printf("  Max Age: %d days\n", cfg.Pipeline.MaxAgeDays)
-		fmt.Println()
-
-		fmt.Println("API:")
-		fmt.Printf("  Status: %s\n", enabledStatus(cfg.API.Enabled))
-		fmt.Printf("  Port: %d\n", cfg.API.Port)
 		fmt.Println()
 
 		return nil
@@ -310,9 +331,9 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("TITO - Advanced Threat Intelligence Platform")
+		fmt.Println("TITO - Automated Threat Modeling for Code Repositories")
 		fmt.Println("Version: 2.1.0")
-		fmt.Println("Go implementation with STRIDE-LM framework + Repository Scanning")
+		fmt.Println("STRIDE-LM + MAESTRO + Attack Paths + 3D Visualization")
 	},
 }
 
@@ -1381,7 +1402,7 @@ func runCompliance(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Output: %s\n", output)
 	fmt.Println()
 	fmt.Println("⚠️  Compliance mapping engine is under active development.")
-	fmt.Println("   This feature will be available in TITO v1.1.")
+	fmt.Println("   Coming soon in a future release.")
 	return nil
 }
 
@@ -1435,7 +1456,7 @@ func runAPI(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Port: %d\n", port)
 	fmt.Println()
 	fmt.Println("⚠️  API server is under active development.")
-	fmt.Println("   This feature will be available in TITO v1.1.")
+	fmt.Println("   Coming soon in a future release.")
 	return nil
 }
 

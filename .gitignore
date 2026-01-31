@@ -40,7 +40,5 @@ coverage.out
 coverage.html
 work/
 
-# License server (separate repo)
-license-server/keys/
-license-server/.env
-license-server/*.db
+# License server (separate repo: github.com/Leathal1/tito-license-server)
+license-server/

@@ -4,7 +4,7 @@
 
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg)](https://github.com/Leathal1/TITO/actions)
+[![Threat Model](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml)
 
 Single binary. Point at a repo. Get **attack path analysis**, **3D threat visualization**, **STRIDE-LM + MAESTRO classification**, and **MITRE ATT&CK mappings** — all in one scan.
 
@@ -334,12 +334,12 @@ TITO Pipeline:
 tito scan           Scan a repository for threats and assets
 tito attack-paths   Generate attack path analysis and kill chain visualization
 tito diff           Compare threat models between two scans (PR diff)
+tito report         Generate threat report from scan results
+tito serve          Serve a TITO report or diagram in the browser
+tito status         Show TITO system status and license tier
 tito dashboard      Start the web dashboard (Enterprise)
 tito api            Start the TITO API server (Enterprise)
 tito compliance     Map threats to compliance frameworks (Enterprise)
-tito report         Generate threat intelligence report
-tito serve          Serve a TITO report or diagram in the browser
-tito status         Show TITO system status
 ```
 
 ## Contributing
