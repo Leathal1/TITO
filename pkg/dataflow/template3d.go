@@ -1,0 +1,708 @@
+package dataflow
+
+const htmlTemplate3D = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}} - 3D Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000011;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        #graph-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Header */
+        #header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px 30px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        #header .subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Overview Panel */
+        #overview {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-width: 280px;
+        }
+
+        #overview h2 {
+            font-size: 16px;
+            color: #58a6ff;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-value {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .risk-breakdown {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .risk-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+            font-size: 12px;
+        }
+
+        .risk-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Controls */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #controls h2 {
+            font-size: 14px;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px 0;
+            width: 200px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #58a6ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Info Panel */
+        #info-panel {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-width: 320px;
+            max-width: 400px;
+            max-height: 70vh;
+            overflow-y: auto;
+            display: none;
+        }
+
+        #info-panel.visible {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50%) translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(-50%) translateX(0);
+            }
+        }
+
+        #info-panel h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-section {
+            margin: 15px 0;
+        }
+
+        .info-section h4 {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .finding {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .finding.critical { border-color: #ff0040; }
+        .finding.high { border-color: #ff6600; }
+        .finding.medium { border-color: #ffcc00; }
+        .finding.low { border-color: #00ff88; }
+
+        .finding-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .finding-desc {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin: 2px;
+        }
+
+        .badge.stride { background: #1f6feb; color: white; }
+        .badge.maestro { background: #8957e5; color: white; }
+        .badge.attack { background: #da3633; color: white; }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Scrollbar */
+        #info-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #info-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #info-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        #info-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Loading */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">🚀 Loading 3D Threat Model...</div>
+    <div id="graph-container"></div>
+
+    <div id="header">
+        <h1>🛡️ TITO 3D Threat Model</h1>
+        <div class="subtitle">Interactive 3D Data Flow Visualization</div>
+    </div>
+
+    <div id="overview">
+        <h2>📊 Overview</h2>
+        <div id="overview-stats"></div>
+        <div class="risk-breakdown">
+            <div class="risk-item">
+                <div class="risk-dot" style="background: #ff0040;"></div>
+                <span>Critical: <strong id="critical-count">0</strong></span>
+            </div>
+            <div class="risk-item">
+                <div class="risk-dot" style="background: #ff6600;"></div>
+                <span>High: <strong id="high-count">0</strong></span>
+            </div>
+            <div class="risk-item">
+                <div class="risk-dot" style="background: #ffcc00;"></div>
+                <span>Medium: <strong id="medium-count">0</strong></span>
+            </div>
+            <div class="risk-item">
+                <div class="risk-dot" style="background: #00ff88;"></div>
+                <span>Low: <strong id="low-count">0</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls">
+        <h2>⚙️ Controls</h2>
+        <button id="reset-camera">🎯 Reset Camera</button>
+        <button id="toggle-labels">🏷️ Toggle Labels</button>
+        <button id="toggle-boundaries">🛡️ Toggle Boundaries</button>
+        <button id="toggle-particles">✨ Toggle Particles</button>
+        <button id="export-screenshot">📸 Export Screenshot</button>
+    </div>
+
+    <div id="info-panel">
+        <button class="close-btn" onclick="closeInfoPanel()">×</button>
+        <div id="info-content"></div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import ForceGraph3D from 'https://unpkg.com/3d-force-graph@1.77.4/dist/3d-force-graph.min.js';
+
+        // Data from Go
+        const rawData = {{DIAGRAM_DATA}};
+
+        // Transform data for 3d-force-graph
+        const graphData = {
+            nodes: rawData.nodes.map(node => ({
+                id: node.id,
+                label: node.label,
+                type: node.type,
+                riskLevel: node.riskLevel,
+                threats: node.threats || [],
+                findings: node.findings || [],
+                description: node.description,
+                technology: node.technology
+            })),
+            links: rawData.edges.map(edge => ({
+                source: edge.source,
+                target: edge.target,
+                label: edge.label,
+                sensitive: edge.sensitive,
+                encrypted: edge.encrypted
+            }))
+        };
+
+        // Configuration
+        let labelsVisible = true;
+        let boundariesVisible = true;
+        let particlesVisible = true;
+        let autoRotate = true;
+        let lastInteraction = Date.now();
+
+        // Risk colors and sizes
+        const riskConfig = {
+            critical: { color: 0xff0040, size: 20, emissive: 0xff0040, emissiveIntensity: 0.8 },
+            high: { color: 0xff6600, size: 15, emissive: 0xff6600, emissiveIntensity: 0.6 },
+            medium: { color: 0xffcc00, size: 10, emissive: 0xffcc00, emissiveIntensity: 0.4 },
+            low: { color: 0x00ff88, size: 8, emissive: 0x00ff88, emissiveIntensity: 0.3 }
+        };
+
+        // Initialize graph
+        const elem = document.getElementById('graph-container');
+        const Graph = ForceGraph3D()(elem)
+            .graphData(graphData)
+            .nodeLabel('label')
+            .nodeAutoColorBy('riskLevel')
+            .nodeThreeObject(node => {
+                const config = riskConfig[node.riskLevel] || riskConfig.low;
+                
+                const geometry = new THREE.SphereGeometry(config.size, 32, 32);
+                const material = new THREE.MeshStandardMaterial({
+                    color: config.color,
+                    emissive: config.emissive,
+                    emissiveIntensity: config.emissiveIntensity,
+                    metalness: 0.3,
+                    roughness: 0.4
+                });
+                
+                const sphere = new THREE.Mesh(geometry, material);
+                
+                // Add pulsing animation for critical nodes
+                if (node.riskLevel === 'critical') {
+                    sphere.userData.pulse = true;
+                }
+                
+                // Add label
+                if (labelsVisible) {
+                    const sprite = createTextSprite(node.label);
+                    sprite.position.y = config.size + 15;
+                    sphere.add(sprite);
+                    sphere.userData.labelSprite = sprite;
+                }
+                
+                return sphere;
+            })
+            .linkWidth(2)
+            .linkColor(link => link.sensitive ? '#ff0040' : '#4488ff')
+            .linkOpacity(0.6)
+            .linkDirectionalParticles(link => particlesVisible ? 2 : 0)
+            .linkDirectionalParticleSpeed(0.005)
+            .linkDirectionalParticleWidth(2)
+            .linkDirectionalParticleColor(link => link.sensitive ? '#ff0040' : '#4488ff')
+            .onNodeClick(node => {
+                showNodeInfo(node);
+                // Smooth camera fly-to
+                const distance = 200;
+                const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+                Graph.cameraPosition(
+                    { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                    node,
+                    1000
+                );
+            })
+            .onNodeHover(node => {
+                elem.style.cursor = node ? 'pointer' : null;
+            })
+            .d3Force('charge').strength(-120);
+        
+        Graph.d3Force('link').distance(100);
+
+        // Add stars background
+        addStarField();
+
+        // Add grid plane
+        addGridPlane();
+
+        // Add trust boundaries
+        if (rawData.trustBoundaries && rawData.trustBoundaries.length > 0) {
+            addTrustBoundaries(rawData.trustBoundaries);
+        }
+
+        // Setup scene enhancements
+        const scene = Graph.scene();
+        scene.background = new THREE.Color(0x000011);
+        
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+        
+        // Point lights for drama
+        const pointLight1 = new THREE.PointLight(0x4488ff, 1, 500);
+        pointLight1.position.set(200, 200, 200);
+        scene.add(pointLight1);
+        
+        const pointLight2 = new THREE.PointLight(0xff0040, 1, 500);
+        pointLight2.position.set(-200, -200, -200);
+        scene.add(pointLight2);
+
+        // Animation loop for pulsing and rotation
+        Graph.onEngineTick(() => {
+            // Pulse critical nodes
+            graphData.nodes.forEach(node => {
+                const obj = Graph.nodeThreeObject(node);
+                if (obj && obj.userData.pulse) {
+                    const scale = 1 + Math.sin(Date.now() * 0.003) * 0.15;
+                    obj.scale.set(scale, scale, scale);
+                }
+            });
+
+            // Auto-rotate when inactive
+            if (autoRotate && Date.now() - lastInteraction > 5000) {
+                const camera = Graph.camera();
+                const distance = camera.position.length();
+                const angle = Date.now() * 0.0001;
+                camera.position.x = distance * Math.sin(angle);
+                camera.position.z = distance * Math.cos(angle);
+                camera.lookAt(scene.position);
+            }
+        });
+
+        // Track interaction
+        elem.addEventListener('mousedown', () => {
+            lastInteraction = Date.now();
+        });
+        elem.addEventListener('wheel', () => {
+            lastInteraction = Date.now();
+        });
+
+        // Warmup simulation
+        Graph.numDimensions(3);
+        for (let i = 0; i < 200; i++) {
+            Graph.tickFrame();
+        }
+
+        // Helper functions
+        function createTextSprite(text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+            
+            context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            context.font = 'bold 24px Arial';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text.substring(0, 20), 128, 32);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(40, 10, 1);
+            
+            return sprite;
+        }
+
+        function addStarField() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const starVertices = [];
+            for (let i = 0; i < 1000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starVertices.push(x, y, z);
+            }
+
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+        }
+
+        function addGridPlane() {
+            const gridHelper = new THREE.GridHelper(800, 40, 0x222244, 0x111122);
+            gridHelper.position.y = -200;
+            scene.add(gridHelper);
+        }
+
+        function addTrustBoundaries(boundaries) {
+            // This would require more complex geometry - simplified for now
+            // In a full implementation, would create convex hulls around grouped nodes
+        }
+
+        function showNodeInfo(node) {
+            const panel = document.getElementById('info-panel');
+            const content = document.getElementById('info-content');
+            
+            const config = riskConfig[node.riskLevel] || riskConfig.low;
+            const colorHex = '#' + config.color.toString(16).padStart(6, '0');
+            
+            let html = ` + "`" + `
+                <h3 style="color: ${colorHex};">${node.label}</h3>
+                <div class="info-section">
+                    <h4>Type</h4>
+                    <div class="info-value">${node.type}</div>
+                </div>
+                <div class="info-section">
+                    <h4>Risk Level</h4>
+                    <div class="info-value" style="color: ${colorHex};">${node.riskLevel.toUpperCase()}</div>
+                </div>
+                <div class="info-section">
+                    <h4>Threats</h4>
+                    <div class="info-value">${node.threats.length} identified</div>
+                </div>
+            ` + "`" + `;
+
+            if (node.description) {
+                html += ` + "`" + `
+                    <div class="info-section">
+                        <h4>Description</h4>
+                        <div class="info-value">${node.description}</div>
+                    </div>
+                ` + "`" + `;
+            }
+
+            if (node.findings && node.findings.length > 0) {
+                html += '<div class="info-section"><h4>Findings</h4>';
+                node.findings.slice(0, 5).forEach(f => {
+                    html += ` + "`" + `
+                        <div class="finding ${f.severity}">
+                            <div class="finding-title">${f.title}</div>
+                            <div class="finding-desc">${f.description.substring(0, 150)}...</div>
+                            ${f.stride ? '<span class="badge stride">STRIDE: '+f.stride+'</span>' : ''}
+                            ${f.maestro ? '<span class="badge maestro">MAESTRO: '+f.maestro+'</span>' : ''}
+                            ${f.attackIds && f.attackIds.length > 0 ? '<span class="badge attack">MITRE: '+f.attackIds[0]+'</span>' : ''}
+                        </div>
+                    ` + "`" + `;
+                });
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+            panel.classList.add('visible');
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('info-panel').classList.remove('visible');
+        }
+        window.closeInfoPanel = closeInfoPanel;
+
+        // Controls
+        document.getElementById('reset-camera').addEventListener('click', () => {
+            Graph.cameraPosition(
+                { x: 0, y: 0, z: 400 },
+                { x: 0, y: 0, z: 0 },
+                1000
+            );
+        });
+
+        document.getElementById('toggle-labels').addEventListener('click', () => {
+            labelsVisible = !labelsVisible;
+            graphData.nodes.forEach(node => {
+                const obj = Graph.nodeThreeObject(node);
+                if (obj && obj.userData.labelSprite) {
+                    obj.userData.labelSprite.visible = labelsVisible;
+                }
+            });
+        });
+
+        document.getElementById('toggle-boundaries').addEventListener('click', () => {
+            boundariesVisible = !boundariesVisible;
+            // Would toggle boundary visibility here
+        });
+
+        document.getElementById('toggle-particles').addEventListener('click', () => {
+            particlesVisible = !particlesVisible;
+            Graph.linkDirectionalParticles(link => particlesVisible ? 2 : 0);
+        });
+
+        document.getElementById('export-screenshot').addEventListener('click', () => {
+            const renderer = Graph.renderer();
+            const canvas = renderer.domElement;
+            const dataURL = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'tito-3d-threat-model.png';
+            link.href = dataURL;
+            link.click();
+        });
+
+        // Initialize overview stats
+        const stats = document.getElementById('overview-stats');
+        const repoName = rawData.metadata.repository.split('/').pop();
+        stats.innerHTML = ` + "`" + `
+            <div class="stat"><span class="stat-label">Repository:</span><span class="stat-value">${repoName}</span></div>
+            <div class="stat"><span class="stat-label">Nodes:</span><span class="stat-value">${rawData.metadata.totalNodes}</span></div>
+            <div class="stat"><span class="stat-label">Edges:</span><span class="stat-value">${rawData.metadata.totalEdges}</span></div>
+            <div class="stat"><span class="stat-label">Threats:</span><span class="stat-value">${rawData.metadata.totalThreats}</span></div>
+        ` + "`" + `;
+
+        // Calculate risk breakdown
+        const riskCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+        graphData.nodes.forEach(node => {
+            riskCounts[node.riskLevel] = (riskCounts[node.riskLevel] || 0) + 1;
+        });
+
+        document.getElementById('critical-count').textContent = riskCounts.critical;
+        document.getElementById('high-count').textContent = riskCounts.high;
+        document.getElementById('medium-count').textContent = riskCounts.medium;
+        document.getElementById('low-count').textContent = riskCounts.low;
+
+        // Hide loading
+        document.getElementById('loading').style.display = 'none';
+    </script>
+</body>
+</html>
+`

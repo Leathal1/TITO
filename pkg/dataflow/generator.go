@@ -26,7 +26,7 @@ func (g *Generator) GenerateFromRepository(
 	outputPath string,
 ) error {
 	// Build diagram data
-	diagram := g.buildDiagramData(repo, threats)
+	diagram := g.BuildDiagramData(repo, threats)
 
 	// Generate HTML
 	html := g.generateHTML(diagram)
@@ -39,8 +39,8 @@ func (g *Generator) GenerateFromRepository(
 	return nil
 }
 
-// buildDiagramData builds the diagram data structure from repository and threats
-func (g *Generator) buildDiagramData(repo *scanner.Repository, threats []*models.Threat) *DiagramData {
+// BuildDiagramData builds the diagram data structure from repository and threats
+func (g *Generator) BuildDiagramData(repo *scanner.Repository, threats []*models.Threat) *DiagramData {
 	diagram := &DiagramData{
 		Nodes:           make([]Node, 0),
 		Edges:           make([]Edge, 0),

@@ -318,7 +318,8 @@ func init() {
 	scanCmd.Flags().StringP("branch", "b", "", "Branch to scan (default: main)")
 	scanCmd.Flags().Bool("maestro", false, "Enable MAESTRO agentic AI threat analysis")
 	scanCmd.Flags().Bool("semgrep", false, "Enable Semgrep static analysis")
-	scanCmd.Flags().Bool("dataflow", false, "Generate interactive data flow diagram HTML")
+	scanCmd.Flags().Bool("dataflow", false, "Generate interactive data flow diagram HTML (2D)")
+	scanCmd.Flags().Bool("3d", false, "Generate 3D data flow visualization")
 	scanCmd.Flags().Bool("mitre", false, "Enrich findings with MITRE ATT&CK mappings")
 	scanCmd.Flags().StringP("output", "o", "", "Output file for report/diagram")
 	scanCmd.MarkFlagRequired("repo")
@@ -330,6 +331,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	enableMAESTRO, _ := cmd.Flags().GetBool("maestro")
 	enableSemgrep, _ := cmd.Flags().GetBool("semgrep")
 	enableDataflow, _ := cmd.Flags().GetBool("dataflow")
+	enable3D, _ := cmd.Flags().GetBool("3d")
 	enableMITRE, _ := cmd.Flags().GetBool("mitre")
 	outputFile, _ := cmd.Flags().GetString("output")
 
@@ -452,21 +454,56 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 7: Generate Data Flow Diagram (if enabled)
-	if enableDataflow {
-		fmt.Println("📊 Generating interactive data flow diagram...")
-		diagramPath := outputFile
-		if diagramPath == "" {
-			diagramPath = "threat-model.html"
+	if enableDataflow || enable3D {
+		// Prepare base path
+		basePath := outputFile
+		if basePath == "" {
+			basePath = "threat-model"
 		}
-
-		generator := dataflow.NewGenerator()
-		if err := generator.GenerateFromRepository(repo, processedThreats, diagramPath); err != nil {
-			return fmt.Errorf("diagram generation failed: %w", err)
+		
+		// Generate 2D diagram
+		if enableDataflow {
+			fmt.Println("📊 Generating 2D data flow diagram...")
+			diagramPath := basePath
+			if !strings.HasSuffix(diagramPath, ".html") {
+				diagramPath += ".html"
+			}
+			
+			generator := dataflow.NewGenerator()
+			if err := generator.GenerateFromRepository(repo, processedThreats, diagramPath); err != nil {
+				return fmt.Errorf("2D diagram generation failed: %w", err)
+			}
+			
+			fmt.Printf("✓ 2D diagram generated: %s\n", diagramPath)
+			fmt.Println()
 		}
-
-		fmt.Printf("✓ Interactive diagram generated: %s\n", diagramPath)
-		fmt.Println("  Open in browser to explore!")
-		fmt.Println()
+		
+		// Generate 3D diagram
+		if enable3D {
+			fmt.Println("🌌 Generating 3D data flow visualization...")
+			
+			// If both flags, add -3d suffix
+			diagram3DPath := basePath
+			if enableDataflow {
+				diagram3DPath = strings.TrimSuffix(basePath, ".html") + "-3d.html"
+			} else if !strings.HasSuffix(diagram3DPath, ".html") {
+				diagram3DPath += ".html"
+			}
+			
+			// Build diagram data first
+			generator := dataflow.NewGenerator()
+			diagramData := generator.BuildDiagramData(repo, processedThreats)
+			
+			// Generate 3D visualization
+			generator3D := dataflow.NewGenerator3D()
+			if err := generator3D.Generate3D(diagramData, diagram3DPath); err != nil {
+				return fmt.Errorf("3D diagram generation failed: %w", err)
+			}
+			
+			fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
+			fmt.Println("  Open in browser to explore the stunning 3D threat model!")
+			fmt.Println()
+		}
 	}
 
 	// Show results
@@ -508,12 +545,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("💡 Next steps:")
-	if enableDataflow {
-		fmt.Printf("   Open %s in your browser\n", outputFile)
+	if enableDataflow || enable3D {
+		basePath := outputFile
+		if basePath == "" {
+			basePath = "threat-model.html"
+		}
+		fmt.Printf("   Open %s in your browser\n", basePath)
 	} else {
-		fmt.Println("   atip scan --repo <url> --dataflow  # Generate visualization")
+		fmt.Println("   tito scan --repo <url> --dataflow  # Generate 2D visualization")
+		fmt.Println("   tito scan --repo <url> --3d        # Generate stunning 3D visualization")
 	}
-	fmt.Println("   atip dashboard                     # Launch web dashboard")
+	fmt.Println("   tito dashboard                     # Launch web dashboard")
 
 	return nil
 }
