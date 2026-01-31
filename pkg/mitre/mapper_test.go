@@ -1,11 +1,17 @@
 package mitre
 
 import (
+	"os"
 	"testing"
 
 	"github.com/Leathal1/TITO/pkg/maestro"
 	"github.com/Leathal1/TITO/pkg/stridelm"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("TITO_SKIP_LICENSE", "1")
+	os.Exit(m.Run())
+}
 
 func TestNewMapper(t *testing.T) {
 	mapper := NewMapper()

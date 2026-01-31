@@ -1,9 +1,15 @@
 package maestro
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("TITO_SKIP_LICENSE", "1")
+	os.Exit(m.Run())
+}
 
 func TestNewClassifier(t *testing.T) {
 	classifier := NewClassifier()

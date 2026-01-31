@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Leathal1/TITO/pkg/license"
 	"github.com/Leathal1/TITO/pkg/models"
 	"github.com/Leathal1/TITO/pkg/scanner"
 )
@@ -28,7 +29,30 @@ func (g *Generator) GenerateFromRepository(
 	// Build diagram data
 	diagram := g.BuildDiagramData(repo, threats)
 
-	// Generate HTML
+	// Check if output format is HTML and we have a license
+	isHTML := strings.HasSuffix(strings.ToLower(outputPath), ".html")
+	
+	if isHTML && !license.IsPro() {
+		fmt.Println("⚠️  Interactive HTML data flow diagrams require TITO Pro or Enterprise.")
+		fmt.Println("    Get started at https://tito.security/pricing")
+		fmt.Println()
+		fmt.Println("    Generating basic text-based data flow instead...")
+		fmt.Println()
+		
+		// Generate text-based output for free tier
+		textOutput := g.generateTextDiagram(diagram)
+		
+		// Write text output (change extension to .txt)
+		textPath := strings.TrimSuffix(outputPath, ".html") + ".txt"
+		if err := os.WriteFile(textPath, []byte(textOutput), 0644); err != nil {
+			return fmt.Errorf("failed to write diagram: %w", err)
+		}
+		
+		fmt.Printf("✓ Basic data flow written to %s\n", textPath)
+		return nil
+	}
+
+	// Generate HTML for Pro/Enterprise
 	html := g.generateHTML(diagram)
 
 	// Write to file
@@ -433,4 +457,96 @@ func (g *Generator) inferTrustBoundaries(nodes []Node) []TrustBoundary {
 	}
 
 	return boundaries
+}
+
+// generateTextDiagram generates a basic text-based data flow diagram (free tier)
+func (g *Generator) generateTextDiagram(diagram *DiagramData) string {
+	var sb strings.Builder
+
+	sb.WriteString("================================================================================\n")
+	sb.WriteString(diagram.Metadata.Title + "\n")
+	sb.WriteString("================================================================================\n\n")
+
+	sb.WriteString("Description: " + diagram.Metadata.Description + "\n")
+	sb.WriteString("Repository:  " + diagram.Metadata.Repository + "\n")
+	sb.WriteString("Generated:   " + diagram.Metadata.Generated + "\n\n")
+
+	sb.WriteString(fmt.Sprintf("Summary: %d nodes, %d flows, %d threats\n\n",
+		diagram.Metadata.TotalNodes,
+		diagram.Metadata.TotalEdges,
+		diagram.Metadata.TotalThreats))
+
+	// List nodes
+	sb.WriteString("COMPONENTS\n")
+	sb.WriteString("--------------------------------------------------------------------------------\n")
+	for _, node := range diagram.Nodes {
+		sb.WriteString(fmt.Sprintf("[%s] %s\n", node.Type, node.Label))
+		sb.WriteString(fmt.Sprintf("  Risk: %s\n", node.RiskLevel))
+		if node.Description != "" {
+			sb.WriteString(fmt.Sprintf("  %s\n", node.Description))
+		}
+		if len(node.Threats) > 0 {
+			sb.WriteString(fmt.Sprintf("  ⚠️  %d threat(s) identified\n", len(node.Threats)))
+		}
+		sb.WriteString("\n")
+	}
+
+	// List flows
+	sb.WriteString("\nDATA FLOWS\n")
+	sb.WriteString("--------------------------------------------------------------------------------\n")
+	for _, edge := range diagram.Edges {
+		sourceNode := findNodeByID(diagram.Nodes, edge.Source)
+		targetNode := findNodeByID(diagram.Nodes, edge.Target)
+
+		sourceName := edge.Source
+		if sourceNode != nil {
+			sourceName = sourceNode.Label
+		}
+		targetName := edge.Target
+		if targetNode != nil {
+			targetName = targetNode.Label
+		}
+
+		sb.WriteString(fmt.Sprintf("%s → %s\n", sourceName, targetName))
+		sb.WriteString(fmt.Sprintf("  Data: %s", edge.DataType))
+		if edge.Sensitive {
+			sb.WriteString(" [SENSITIVE]")
+		}
+		if edge.Encrypted {
+			sb.WriteString(" [ENCRYPTED]")
+		}
+		sb.WriteString("\n")
+		if len(edge.Threats) > 0 {
+			sb.WriteString(fmt.Sprintf("  ⚠️  %d threat(s)\n", len(edge.Threats)))
+		}
+		sb.WriteString("\n")
+	}
+
+	// List trust boundaries
+	if len(diagram.TrustBoundaries) > 0 {
+		sb.WriteString("\nTRUST BOUNDARIES\n")
+		sb.WriteString("--------------------------------------------------------------------------------\n")
+		for _, boundary := range diagram.TrustBoundaries {
+			sb.WriteString(fmt.Sprintf("%s (%s zone)\n", boundary.Name, boundary.Zone))
+			sb.WriteString(fmt.Sprintf("  Components: %d\n\n", len(boundary.Nodes)))
+		}
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString("================================================================================\n")
+	sb.WriteString("💡 Upgrade to TITO Pro for interactive HTML diagrams with filtering,\n")
+	sb.WriteString("   threat visualization, and detailed findings.\n")
+	sb.WriteString("   Visit https://tito.security/pricing\n")
+	sb.WriteString("================================================================================\n")
+
+	return sb.String()
+}
+
+func findNodeByID(nodes []Node, id string) *Node {
+	for i := range nodes {
+		if nodes[i].ID == id {
+			return &nodes[i]
+		}
+	}
+	return nil
 }
