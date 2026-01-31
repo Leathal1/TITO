@@ -1,84 +1,84 @@
-.PHONY: build install clean test fmt vet run-demo help
+# TITO - Threat In, Threat Out
+# Build automation for cross-platform distribution
 
-# Build variables
 BINARY_NAME=atip
-INSTALL_PATH=/usr/local/bin
+VERSION=2.1.0
+BUILD_DIR=dist
+LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
 
-# Go commands
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOINSTALL=$(GOCMD) install
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOFMT=$(GOCMD) fmt
-GOVET=$(GOCMD) vet
-GOMOD=$(GOCMD) mod
+.PHONY: all build test clean install cross-compile
 
-help: ## Show this help message
-	@echo 'Usage:'
-	@echo '  make [target]'
-	@echo ''
-	@echo 'Targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+all: clean test build
 
-build: ## Build the binary
-	@echo "Building $(BINARY_NAME)..."
-	$(GOBUILD) -o $(BINARY_NAME) ./cmd/atip
-	@echo "✓ Build complete: ./$(BINARY_NAME)"
+build:
+	@echo "🔨 Building $(BINARY_NAME)..."
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/atip
+	@echo "✓ Built $(BINARY_NAME)"
 
-install: build ## Install the binary to /usr/local/bin
-	@echo "Installing to $(INSTALL_PATH)/$(BINARY_NAME)..."
-	@cp $(BINARY_NAME) $(INSTALL_PATH)/$(BINARY_NAME)
-	@echo "✓ Installed successfully"
+test:
+	@echo "🧪 Running tests..."
+	go test -v ./...
+	@echo "✓ All tests passed"
 
-clean: ## Remove build artifacts
-	@echo "Cleaning..."
-	$(GOCLEAN)
-	@rm -f $(BINARY_NAME)
-	@rm -rf reports/
-	@echo "✓ Clean complete"
+vet:
+	@echo "🔍 Running vet..."
+	go vet ./...
+	@echo "✓ No issues"
 
-test: ## Run tests
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
+coverage:
+	@echo "📊 Running coverage..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "✓ Coverage report: coverage.html"
 
-fmt: ## Format code
-	@echo "Formatting code..."
-	$(GOFMT) ./...
-	@echo "✓ Format complete"
+clean:
+	@echo "🧹 Cleaning..."
+	rm -rf $(BUILD_DIR) $(BINARY_NAME) coverage.out coverage.html
+	@echo "✓ Clean"
 
-vet: ## Run go vet
-	@echo "Running go vet..."
-	$(GOVET) ./...
-	@echo "✓ Vet complete"
+install:
+	@echo "📦 Installing $(BINARY_NAME)..."
+	go install $(LDFLAGS) ./cmd/atip
+	@echo "✓ Installed"
 
-deps: ## Download dependencies
-	@echo "Downloading dependencies..."
-	$(GOMOD) download
-	$(GOMOD) tidy
-	@echo "✓ Dependencies ready"
+# Cross-compile for all platforms
+cross-compile: clean
+	@echo "🌍 Cross-compiling $(BINARY_NAME) v$(VERSION)..."
+	@mkdir -p $(BUILD_DIR)
+	
+	@echo "  → macOS (arm64)..."
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/atip
+	
+	@echo "  → macOS (amd64)..."
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/atip
+	
+	@echo "  → Linux (amd64)..."
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/atip
+	
+	@echo "  → Linux (arm64)..."
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/atip
+	
+	@echo "  → Windows (amd64)..."
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/atip
+	
+	@echo "✓ All binaries in $(BUILD_DIR)/"
+	@ls -lh $(BUILD_DIR)/
 
-run-demo: build ## Run the demo
-	@echo "Running demo..."
-	$(GOCMD) run ./examples/demo/main.go
+# Package releases with checksums
+release: cross-compile
+	@echo "📋 Generating checksums..."
+	cd $(BUILD_DIR) && shasum -a 256 * > checksums.txt
+	@echo "✓ Release ready in $(BUILD_DIR)/"
+	@cat $(BUILD_DIR)/checksums.txt
 
-init-config: build ## Initialize configuration file
-	@echo "Creating default configuration..."
-	./$(BINARY_NAME) init-config
-	@echo "✓ Configuration created"
+# Demo scan
+demo:
+	@echo "🎯 Running demo scan..."
+	go run ./cmd/atip scan --repo https://github.com/OWASP/NodeGoat --maestro --semgrep --mitre --dataflow
+	@echo "✓ Demo complete"
 
-collect: build ## Run threat collection
-	@echo "Running threat collection..."
-	./$(BINARY_NAME) collect --all
+fmt:
+	go fmt ./...
 
-report: build ## Generate threat report
-	@echo "Generating threat report..."
-	./$(BINARY_NAME) report
-
-status: build ## Show system status
-	@echo "System status:"
-	./$(BINARY_NAME) status
-
-all: clean deps build ## Clean, download deps, and build
-
-.DEFAULT_GOAL := help
+lint: vet
+	@echo "✓ Lint passed"

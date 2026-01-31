@@ -9,11 +9,15 @@ import (
 	"github.com/Leathal1/TITO/pkg/collectors"
 	"github.com/Leathal1/TITO/pkg/config"
 	"github.com/Leathal1/TITO/pkg/dashboard"
+	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/pkg/maestro"
 	"github.com/Leathal1/TITO/pkg/mapper"
+	"github.com/Leathal1/TITO/pkg/mitre"
 	"github.com/Leathal1/TITO/pkg/models"
 	"github.com/Leathal1/TITO/pkg/pipeline"
 	"github.com/Leathal1/TITO/pkg/reports"
 	"github.com/Leathal1/TITO/pkg/scanner"
+	"github.com/Leathal1/TITO/pkg/semgrep"
 	"github.com/spf13/cobra"
 )
 
@@ -312,12 +316,23 @@ Examples:
 func init() {
 	scanCmd.Flags().StringP("repo", "r", "", "Repository URL to scan (required)")
 	scanCmd.Flags().StringP("branch", "b", "", "Branch to scan (default: main)")
+	scanCmd.Flags().Bool("maestro", false, "Enable MAESTRO agentic AI threat analysis")
+	scanCmd.Flags().Bool("semgrep", false, "Enable Semgrep static analysis")
+	scanCmd.Flags().Bool("dataflow", false, "Generate interactive data flow diagram HTML")
+	scanCmd.Flags().Bool("mitre", false, "Enrich findings with MITRE ATT&CK mappings")
+	scanCmd.Flags().StringP("output", "o", "", "Output file for report/diagram")
 	scanCmd.MarkFlagRequired("repo")
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
 	repoURL, _ := cmd.Flags().GetString("repo")
 	branch, _ := cmd.Flags().GetString("branch")
+	enableMAESTRO, _ := cmd.Flags().GetBool("maestro")
+	enableSemgrep, _ := cmd.Flags().GetBool("semgrep")
+	enableDataflow, _ := cmd.Flags().GetBool("dataflow")
+	enableMITRE, _ := cmd.Flags().GetBool("mitre")
+	outputFile, _ := cmd.Flags().GetString("output")
+
 	if branch == "" {
 		branch = "main"
 	}
@@ -368,7 +383,45 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Collected %d threats\n", len(processedThreats))
 	fmt.Println()
 
-	// Step 3: Map threats to code
+	// Step 3: MAESTRO Analysis (if enabled)
+	if enableMAESTRO {
+		fmt.Println("🤖 Running MAESTRO agentic AI threat analysis...")
+		maestroClassifier := maestro.NewClassifier()
+
+		maestroInput := maestro.ClassificationInput{
+			SystemDescription: fmt.Sprintf("%s %s application", repo.Language, repo.Framework),
+			Technologies:      []string{repo.Language, repo.Framework},
+			HasAgents:         strings.Contains(strings.ToLower(repo.Framework), "agent"),
+		}
+
+		maestroProfile := maestroClassifier.Classify(maestroInput)
+		fmt.Printf("✓ MAESTRO Classification: %s\n", maestroProfile.PrimaryLayer)
+		fmt.Printf("  Identified Threats: %d\n", len(maestroProfile.IdentifiedThreats))
+		fmt.Println()
+	}
+
+	// Step 4: Semgrep Analysis (if enabled)
+	var semgrepFindings []semgrep.Finding
+	if enableSemgrep {
+		fmt.Println("🔬 Running Semgrep static analysis...")
+		semgrepRunner := semgrep.NewRunner("auto")
+		semgrepOutput, err := semgrepRunner.Scan(ctx, repo.LocalPath)
+		if err != nil {
+			fmt.Printf("⚠️  Semgrep scan warning: %v\n", err)
+		} else {
+			semgrepFindings = semgrepOutput.Results
+			filteredFindings := semgrep.FilterBySeverity(semgrepFindings, semgrep.SeverityWarning)
+			fmt.Printf("✓ Semgrep found %d issues (%d WARNING+)\n", len(semgrepFindings), len(filteredFindings))
+
+			// Map findings to STRIDE/MAESTRO
+			semgrepMapper := semgrep.NewMapper()
+			mappings := semgrepMapper.MapFindings(filteredFindings)
+			fmt.Printf("  Mapped to %d threat categories\n", len(semgrep.GroupBySTRIDE(mappings)))
+			fmt.Println()
+		}
+	}
+
+	// Step 5: Map threats to code
 	fmt.Println("🎯 Mapping threats to code assets...")
 	threatMapper := mapper.NewThreatMapper(processedThreats)
 	mappedThreats, err := threatMapper.MapThreatsToRepository(ctx, repo)
@@ -378,6 +431,43 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✓ Mapped %d threats to code\n", len(mappedThreats))
 	fmt.Println()
+
+	// Step 6: MITRE ATT&CK Enrichment (if enabled)
+	if enableMITRE {
+		fmt.Println("🎯 Enriching with MITRE ATT&CK mappings...")
+		mitreMapper := mitre.NewMapper()
+		for i := range processedThreats {
+			if processedThreats[i].StrideProfile != nil {
+				attackMappings := mitreMapper.MapSTRIDELM(
+					processedThreats[i].StrideProfile.PrimaryCategory,
+					processedThreats[i].StrideProfile.ConfidenceScores[processedThreats[i].StrideProfile.PrimaryCategory],
+				)
+				for _, mapping := range attackMappings {
+					processedThreats[i].MitreAttackIDs = append(processedThreats[i].MitreAttackIDs, mapping.TechniqueID)
+				}
+			}
+		}
+		fmt.Printf("✓ ATT&CK techniques mapped\n")
+		fmt.Println()
+	}
+
+	// Step 7: Generate Data Flow Diagram (if enabled)
+	if enableDataflow {
+		fmt.Println("📊 Generating interactive data flow diagram...")
+		diagramPath := outputFile
+		if diagramPath == "" {
+			diagramPath = "threat-model.html"
+		}
+
+		generator := dataflow.NewGenerator()
+		if err := generator.GenerateFromRepository(repo, processedThreats, diagramPath); err != nil {
+			return fmt.Errorf("diagram generation failed: %w", err)
+		}
+
+		fmt.Printf("✓ Interactive diagram generated: %s\n", diagramPath)
+		fmt.Println("  Open in browser to explore!")
+		fmt.Println()
+	}
 
 	// Show results
 	fmt.Println("📊 Results Summary:")
@@ -397,6 +487,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  🟠 High threats: %d\n", highCount)
 	fmt.Printf("  📦 Total affected assets: %d\n", countAffectedAssets(mappedThreats))
 	fmt.Printf("  🔄 Risky data flows: %d\n", countRiskyFlows(mappedThreats))
+	if enableSemgrep {
+		fmt.Printf("  🔬 Semgrep findings: %d\n", len(semgrepFindings))
+	}
 	fmt.Println()
 
 	// Show top threats
@@ -404,17 +497,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Println("Top 5 Threats:")
 		for i := 0; i < min(5, len(mappedThreats)); i++ {
 			mt := mappedThreats[i]
-			fmt.Printf("  %d. [%s] %s (Risk: %.2f)\n",
-				i+1, mt.Threat.Severity, truncate(mt.Threat.Title, 60), mt.RiskScore)
-			if len(mt.Assets) > 0 {
-				fmt.Printf("     Assets: %d | Mitigations: %d\n", len(mt.Assets), len(mt.Mitigations))
+			strideStr := ""
+			if mt.Threat.StrideProfile != nil {
+				strideStr = fmt.Sprintf("[%s] ", mt.Threat.StrideProfile)
 			}
+			fmt.Printf("  %d. [%s] %s%s (Risk: %.2f)\n",
+				i+1, mt.Threat.Severity, strideStr, truncate(mt.Threat.Title, 50), mt.RiskScore)
 		}
 		fmt.Println()
 	}
 
-	fmt.Println("💡 Next step: Launch dashboard to visualize")
-	fmt.Println("   atip dashboard")
+	fmt.Println("💡 Next steps:")
+	if enableDataflow {
+		fmt.Printf("   Open %s in your browser\n", outputFile)
+	} else {
+		fmt.Println("   atip scan --repo <url> --dataflow  # Generate visualization")
+	}
+	fmt.Println("   atip dashboard                     # Launch web dashboard")
 
 	return nil
 }
