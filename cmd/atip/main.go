@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/Leathal1/TITO/pkg/collectors"
 	"github.com/Leathal1/TITO/pkg/config"

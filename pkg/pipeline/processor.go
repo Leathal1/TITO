@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Leathal1/TITO/pkg/models"
+	"github.com/Leathal1/TITO/pkg/stridelm"
 )
 
 // Processor processes threats through the intelligence pipeline
@@ -329,14 +330,14 @@ func sortByPriority(threats []*models.Threat) {
 }
 
 // Import stridelm categories for enrichment
-func getAllCategories() map[string]struct {
+func getAllCategories() map[stridelm.Category]struct {
 	DetectionStrategies []string
 } {
 	// Simplified version - real implementation would import from stridelm package
-	return map[string]struct {
+	return map[stridelm.Category]struct {
 		DetectionStrategies []string
 	}{
-		"S": {
+		stridelm.Spoofing: {
 			DetectionStrategies: []string{
 				"Monitor authentication failures",
 				"Track credential usage patterns",

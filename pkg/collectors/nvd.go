@@ -2,9 +2,7 @@ package collectors
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -132,13 +130,11 @@ func (n *NVDCollector) parseCVE(data CVEData) (*models.Threat, error) {
 	}
 
 	// Extract CVSS metrics
-	var baseScore float64
 	var severityStr string
 	var vectorString string
 
 	if len(data.Metrics.CVSSMetricV31) > 0 {
 		cvssData := data.Metrics.CVSSMetricV31[0].CVSSData
-		baseScore = cvssData.BaseScore
 		severityStr = strings.ToLower(cvssData.BaseSeverity)
 		vectorString = cvssData.VectorString
 	}
