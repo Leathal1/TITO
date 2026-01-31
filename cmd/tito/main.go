@@ -28,6 +28,7 @@ import (
 	"github.com/Leathal1/TITO/pkg/scan"
 	"github.com/Leathal1/TITO/pkg/scanner"
 	"github.com/Leathal1/TITO/pkg/semgrep"
+	"github.com/Leathal1/TITO/pkg/stridelm"
 	"github.com/spf13/cobra"
 )
 
@@ -641,17 +642,27 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
-	// Show top threats
+	// Show threat distribution by category
+	if len(processedThreats) > 0 {
+		fmt.Println("Threat Distribution:")
+		categoryDistribution := getThreatDistribution(processedThreats)
+		for _, item := range categoryDistribution {
+			fmt.Printf("  %s: %d findings\n", item.CategoryName, item.Count)
+		}
+		fmt.Println()
+	}
+
+	// Show top threats by category (one per STRIDE-LM category)
 	if len(mappedThreats) > 0 {
-		fmt.Println("Top 5 Threats:")
-		for i := 0; i < min(5, len(mappedThreats)); i++ {
-			mt := mappedThreats[i]
-			strideStr := ""
-			if mt.Threat.StrideProfile != nil {
-				strideStr = fmt.Sprintf("[%s] ", mt.Threat.StrideProfile)
+		fmt.Println("Top Threats by Category:")
+		topByCategory := getTopThreatsByCategory(mappedThreats)
+		for _, item := range topByCategory {
+			instanceStr := ""
+			if item.Threat.InstanceCount > 1 {
+				instanceStr = fmt.Sprintf(" (%d instances)", item.Threat.InstanceCount)
 			}
-			fmt.Printf("  %d. [%s] %s%s (Risk: %.2f)\n",
-				i+1, mt.Threat.Severity, strideStr, truncate(mt.Threat.Title, 50), mt.RiskScore)
+			fmt.Printf("  [%s] %s%s - Risk: %.2f\n",
+				item.CategoryCode, truncate(item.Threat.Title, 60), instanceStr, item.RiskScore)
 		}
 		fmt.Println()
 	}
@@ -1510,6 +1521,119 @@ func countRiskyFlows(threats []mapper.MappedThreat) int {
 		}
 	}
 	return count
+}
+
+// CategoryDistributionItem represents threat count by category
+type CategoryDistributionItem struct {
+	CategoryCode string
+	CategoryName string
+	Count        int
+}
+
+// getThreatDistribution returns threat counts grouped by STRIDE-LM category
+func getThreatDistribution(threats []*models.Threat) []CategoryDistributionItem {
+	distribution := make(map[string]*CategoryDistributionItem)
+	
+	// Count threats by category
+	for _, threat := range threats {
+		if threat.StrideProfile != nil {
+			catCode := string(threat.StrideProfile.PrimaryCategory)
+			if _, exists := distribution[catCode]; !exists {
+				catInfo := threat.StrideProfile.PrimaryCategory
+				distribution[catCode] = &CategoryDistributionItem{
+					CategoryCode: catCode,
+					CategoryName: getCategoryFullName(catInfo),
+					Count:        0,
+				}
+			}
+			distribution[catCode].Count++
+		}
+	}
+	
+	// Convert map to sorted slice (by count descending)
+	result := make([]CategoryDistributionItem, 0, len(distribution))
+	for _, item := range distribution {
+		result = append(result, *item)
+	}
+	
+	// Simple bubble sort by count (descending)
+	for i := 0; i < len(result)-1; i++ {
+		for j := 0; j < len(result)-i-1; j++ {
+			if result[j].Count < result[j+1].Count {
+				result[j], result[j+1] = result[j+1], result[j]
+			}
+		}
+	}
+	
+	return result
+}
+
+// TopThreatByCategoryItem represents the top threat for a category
+type TopThreatByCategoryItem struct {
+	CategoryCode string
+	Threat       *models.Threat
+	RiskScore    float64
+}
+
+// getTopThreatsByCategory returns one top threat per STRIDE-LM category
+func getTopThreatsByCategory(mappedThreats []mapper.MappedThreat) []TopThreatByCategoryItem {
+	categoryMap := make(map[string]*TopThreatByCategoryItem)
+	
+	// Find highest risk threat for each category
+	for _, mt := range mappedThreats {
+		if mt.Threat.StrideProfile != nil {
+			catCode := string(mt.Threat.StrideProfile.PrimaryCategory)
+			
+			if existing, exists := categoryMap[catCode]; !exists || mt.RiskScore > existing.RiskScore {
+				categoryMap[catCode] = &TopThreatByCategoryItem{
+					CategoryCode: catCode,
+					Threat:       mt.Threat,
+					RiskScore:    mt.RiskScore,
+				}
+			}
+		}
+	}
+	
+	// Convert to sorted slice (by risk score descending)
+	result := make([]TopThreatByCategoryItem, 0, len(categoryMap))
+	for _, item := range categoryMap {
+		result = append(result, *item)
+	}
+	
+	// Simple bubble sort by risk score (descending)
+	for i := 0; i < len(result)-1; i++ {
+		for j := 0; j < len(result)-i-1; j++ {
+			if result[j].RiskScore < result[j+1].RiskScore {
+				result[j], result[j+1] = result[j+1], result[j]
+			}
+		}
+	}
+	
+	return result
+}
+
+// getCategoryFullName returns the full name for a STRIDE-LM category
+func getCategoryFullName(cat stridelm.Category) string {
+	switch cat {
+	case stridelm.Spoofing:
+		return "Spoofing"
+	case stridelm.Tampering:
+		return "Tampering"
+	case stridelm.Repudiation:
+		return "Repudiation"
+	case stridelm.InfoDisclosure:
+		return "Information Disclosure"
+	case stridelm.DenialOfService:
+		return "Denial of Service"
+	case stridelm.Elevation:
+		return "Elevation of Privilege"
+	case stridelm.LateralMovement:
+		return "Lateral Movement"
+	case stridelm.Malware:
+		return "Malware"
+	default:
+		return "Unknown"
+	}
 }
 
 var serveCmd = &cobra.Command{

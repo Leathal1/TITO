@@ -203,6 +203,7 @@ type Threat struct {
 	SourceFeeds   []string `json:"source_feeds" yaml:"source_feeds"`
 	AnalystNotes  string   `json:"analyst_notes,omitempty" yaml:"analyst_notes,omitempty"`
 	FalsePositive bool     `json:"false_positive" yaml:"false_positive"`
+	InstanceCount int      `json:"instance_count" yaml:"instance_count"` // Number of consolidated instances
 }
 
 // CalculatePriorityScore calculates priority score (0.0 to 1.0)

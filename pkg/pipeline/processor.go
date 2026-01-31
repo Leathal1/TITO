@@ -152,6 +152,10 @@ func (p *Processor) deduplicate(threats []*models.Threat) []*models.Threat {
 			// Merge into existing
 			p.mergeThreats(existing, threat)
 		} else {
+			// Initialize instance count for new threats
+			if threat.InstanceCount == 0 {
+				threat.InstanceCount = 1
+			}
 			seen[key] = threat
 			deduplicated = append(deduplicated, threat)
 		}
@@ -203,6 +207,16 @@ func (p *Processor) filter(threats []*models.Threat) []*models.Threat {
 
 // generateDedupKey generates a deduplication key for a threat
 func (p *Processor) generateDedupKey(threat *models.Threat) string {
+	// For code-analysis threats, deduplicate by title to consolidate
+	// e.g., 39 "Hardcoded Credential" findings become 1 entry with count=39
+	if containsTag(threat.Tags, "code-analysis") {
+		titleKey := threat.Title
+		if len(titleKey) > 100 {
+			titleKey = titleKey[:100]
+		}
+		return "code:" + titleKey
+	}
+
 	// CVEs dedupe by CVE ID
 	if len(threat.CVEIDs) > 0 {
 		return "cve:" + threat.CVEIDs[0]
@@ -226,6 +240,12 @@ func (p *Processor) generateDedupKey(threat *models.Threat) string {
 func (p *Processor) mergeThreats(existing, new *models.Threat) {
 	// Update timestamp
 	existing.UpdatedAt = time.Now()
+
+	// Increment instance count
+	if existing.InstanceCount == 0 {
+		existing.InstanceCount = 1
+	}
+	existing.InstanceCount++
 
 	// Merge indicators
 	existingValues := make(map[string]bool)
@@ -264,6 +284,21 @@ func (p *Processor) mergeThreats(existing, new *models.Threat) {
 	// Take higher severity
 	if new.Severity.Score() > existing.Severity.Score() {
 		existing.Severity = new.Severity
+	}
+
+	// Update description with instance count for code-analysis threats
+	if containsTag(existing.Tags, "code-analysis") && existing.InstanceCount > 1 {
+		// Count unique files/locations
+		fileCount := len(existing.Indicators)
+		baseDesc := existing.Description
+		
+		// Remove old count suffix if present
+		if idx := findLastIndex(baseDesc, " ("); idx >= 0 {
+			baseDesc = baseDesc[:idx]
+		}
+		
+		existing.Description = fmt.Sprintf("%s (%d instances across %d files)", 
+			baseDesc, existing.InstanceCount, fileCount)
 	}
 
 	// Recalculate priority
@@ -345,4 +380,26 @@ func getAllCategories() map[stridelm.Category]struct {
 			},
 		},
 	}
+}
+
+// containsTag checks if a tag slice contains a specific tag (case-insensitive)
+func containsTag(tags []string, tag string) bool {
+	targetLower := toLower(tag)
+	for _, t := range tags {
+		if toLower(t) == targetLower {
+			return true
+		}
+	}
+	return false
+}
+
+// findLastIndex finds the last occurrence of a substring
+func findLastIndex(s, substr string) int {
+	idx := -1
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			idx = i
+		}
+	}
+	return idx
 }

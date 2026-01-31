@@ -35,7 +35,7 @@ api_keys.txt
 # Build artifacts
 dist/
 atip
-tito
+/tito
 coverage.out
 coverage.html
 work/
