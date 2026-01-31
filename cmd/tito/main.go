@@ -3,8 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Leathal1/TITO/pkg/collectors"
 	"github.com/Leathal1/TITO/pkg/config"
@@ -62,6 +67,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(dashboardCmd)
+	rootCmd.AddCommand(serveCmd)
 }
 
 var initConfigCmd = &cobra.Command{
@@ -661,4 +667,89 @@ func countRiskyFlows(threats []mapper.MappedThreat) int {
 		}
 	}
 	return count
+}
+
+var serveCmd = &cobra.Command{
+	Use:   "serve [file]",
+	Short: "Serve a TITO report or diagram in the browser",
+	Long: `Serve a TITO HTML report or data flow diagram via local HTTP server.
+
+This is needed for 3D visualizations which require HTTP serving.
+Automatically opens your browser.
+
+Examples:
+  tito serve threat-model.html
+  tito serve threat-model-3d.html --port 8888`,
+	Args: cobra.ExactArgs(1),
+	RunE: runServe,
+}
+
+func init() {
+	serveCmd.Flags().IntP("port", "p", 8877, "Port to serve on")
+}
+
+func runServe(cmd *cobra.Command, args []string) error {
+	filePath := args[0]
+	port, _ := cmd.Flags().GetInt("port")
+
+	// Check file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("file not found: %s", filePath)
+	}
+
+	// Get absolute path and directory
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+	dir := filepath.Dir(absPath)
+	base := filepath.Base(absPath)
+
+	addr := fmt.Sprintf(":%d", port)
+	url := fmt.Sprintf("http://localhost:%d/%s", port, base)
+
+	// Serve the directory
+	fs := http.FileServer(http.Dir(dir))
+	http.Handle("/", fs)
+
+	fmt.Println("🛡️  TITO Report Server")
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Printf("📂 Serving: %s\n", absPath)
+	fmt.Printf("🌐 URL: %s\n", url)
+	fmt.Println()
+	fmt.Println("Press Ctrl+C to stop")
+	fmt.Println()
+
+	// Open browser
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(url)
+	}()
+
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		return fmt.Errorf("server failed: %w", err)
+	}
+
+	return nil
+}
+
+func openBrowser(url string) {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = "open"
+		args = []string{url}
+	case "linux":
+		cmd = "xdg-open"
+		args = []string{url}
+	case "windows":
+		cmd = "rundll32"
+		args = []string{"url.dll,FileProtocolHandler", url}
+	}
+
+	if cmd != "" {
+		exec.Command(cmd, args...).Start()
+	}
 }

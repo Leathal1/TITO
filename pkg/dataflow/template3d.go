@@ -354,17 +354,10 @@ const htmlTemplate3D = `<!DOCTYPE html>
         <div id="info-content"></div>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
-        }
-    }
-    </script>
+    <script src="https://unpkg.com/three@0.170.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.77.4/dist/3d-force-graph.min.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import ForceGraph3D from 'https://unpkg.com/3d-force-graph@1.77.4/dist/3d-force-graph.min.js';
+    <script>
 
         // Data from Go
         const rawData = {{DIAGRAM_DATA}};
