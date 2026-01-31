@@ -370,12 +370,27 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Dependencies: %d\n", len(repo.Dependencies))
 	fmt.Println()
 
-	// Step 2: Collect threats
-	fmt.Println("🔍 Collecting threat intelligence...")
-	nvdCollector := collectors.NewNVDCollector(cfg.Collectors.NVD.APIKey, cfg.Collectors.NVD.DaysBack)
-	threats, err := nvdCollector.Collect(ctx)
+	// Step 2: Collect threats from code analysis
+	fmt.Println("🔍 Analyzing code for security threats...")
+	codeAnalyzer := collectors.NewCodeAnalyzer(repo)
+	codeThreats, err := codeAnalyzer.Collect(ctx)
 	if err != nil {
-		return fmt.Errorf("threat collection failed: %w", err)
+		return fmt.Errorf("code analysis failed: %w", err)
+	}
+	fmt.Printf("✓ Found %d code-based threats\n", len(codeThreats))
+
+	// Also collect from NVD if configured (but don't fail if unavailable)
+	allThreats := codeThreats
+	if cfg.Collectors.NVD.Enabled && cfg.Collectors.NVD.APIKey != "" {
+		fmt.Println("🔍 Collecting additional threat intelligence from NVD...")
+		nvdCollector := collectors.NewNVDCollector(cfg.Collectors.NVD.APIKey, cfg.Collectors.NVD.DaysBack)
+		nvdThreats, err := nvdCollector.Collect(ctx)
+		if err != nil {
+			fmt.Printf("⚠️  NVD collection warning: %v\n", err)
+		} else {
+			allThreats = append(allThreats, nvdThreats...)
+			fmt.Printf("✓ Collected %d threats from NVD\n", len(nvdThreats))
+		}
 	}
 
 	// Process through pipeline
@@ -383,12 +398,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 		MinPriority: cfg.Pipeline.MinPriority,
 		MaxAgeDays:  cfg.Pipeline.MaxAgeDays,
 	})
-	processedThreats, err := processor.Process(ctx, threats)
+	processedThreats, err := processor.Process(ctx, allThreats)
 	if err != nil {
 		return fmt.Errorf("processing failed: %w", err)
 	}
 
-	fmt.Printf("✓ Collected %d threats\n", len(processedThreats))
+	fmt.Printf("✓ Total processed threats: %d\n", len(processedThreats))
 	fmt.Println()
 
 	// Step 3: MAESTRO Analysis (if enabled)
