@@ -34,9 +34,9 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "atip",
-	Short: "ATIP - Advanced Threat Intelligence Platform",
-	Long: `ATIP - Advanced Threat Intelligence Platform
+	Use:   "tito",
+	Short: "TITO - Advanced Threat Intelligence Platform",
+	Long: `TITO - Advanced Threat Intelligence Platform
 
 An intelligence organism that transforms chaos into actionable clarity.
 
@@ -261,10 +261,10 @@ func runReport(cmd *cobra.Command, args []string) error {
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show ATIP system status",
-	Long:  "Display the current status of the ATIP system including configuration and collectors",
+	Short: "Show TITO system status",
+	Long:  "Display the current status of the TITO system including configuration and collectors",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("ATIP System Status")
+		fmt.Println("TITO System Status")
 		fmt.Println(strings.Repeat("=", 50))
 		fmt.Println()
 
@@ -295,8 +295,8 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ATIP - Advanced Threat Intelligence Platform")
-		fmt.Println("Version: 2.0.0 - Code Intelligence Edition")
+		fmt.Println("TITO - Advanced Threat Intelligence Platform")
+		fmt.Println("Version: 2.1.0")
 		fmt.Println("Go implementation with STRIDE-LM framework + Repository Scanning")
 	},
 }
@@ -337,7 +337,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		branch = "main"
 	}
 
-	fmt.Println("🔍 ATIP Repository Scanner")
+	fmt.Println("🔍 TITO Repository Scanner")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Println()
 
@@ -543,7 +543,7 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 	port, _ := cmd.Flags().GetInt("port")
 	addr := fmt.Sprintf(":%d", port)
 
-	fmt.Println("🚀 Starting ATIP Dashboard")
+	fmt.Println("🚀 Starting TITO Dashboard")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Println()
 

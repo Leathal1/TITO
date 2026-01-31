@@ -1,7 +1,7 @@
 # TITO - Threat In, Threat Out
 # Build automation for cross-platform distribution
 
-BINARY_NAME=atip
+BINARY_NAME=tito
 VERSION=2.1.0
 BUILD_DIR=dist
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
@@ -12,7 +12,7 @@ all: clean test build
 
 build:
 	@echo "🔨 Building $(BINARY_NAME)..."
-	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/atip
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/tito
 	@echo "✓ Built $(BINARY_NAME)"
 
 test:
@@ -38,7 +38,7 @@ clean:
 
 install:
 	@echo "📦 Installing $(BINARY_NAME)..."
-	go install $(LDFLAGS) ./cmd/atip
+	go install $(LDFLAGS) ./cmd/tito
 	@echo "✓ Installed"
 
 # Cross-compile for all platforms
@@ -47,19 +47,19 @@ cross-compile: clean
 	@mkdir -p $(BUILD_DIR)
 	
 	@echo "  → macOS (arm64)..."
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/atip
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/tito
 	
 	@echo "  → macOS (amd64)..."
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/atip
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/tito
 	
 	@echo "  → Linux (amd64)..."
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/atip
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/tito
 	
 	@echo "  → Linux (arm64)..."
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/atip
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/tito
 	
 	@echo "  → Windows (amd64)..."
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/atip
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/tito
 	
 	@echo "✓ All binaries in $(BUILD_DIR)/"
 	@ls -lh $(BUILD_DIR)/
@@ -74,7 +74,7 @@ release: cross-compile
 # Demo scan
 demo:
 	@echo "🎯 Running demo scan..."
-	go run ./cmd/atip scan --repo https://github.com/OWASP/NodeGoat --maestro --semgrep --mitre --dataflow
+	go run ./cmd/tito scan --repo https://github.com/OWASP/NodeGoat --maestro --semgrep --mitre --dataflow
 	@echo "✓ Demo complete"
 
 fmt:

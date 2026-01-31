@@ -22,14 +22,14 @@ jobs:
           go-version: '1.21'
       
       - name: Install TITO
-        run: go install github.com/Leathal1/TITO/cmd/atip@latest
+        run: go install github.com/Leathal1/TITO/cmd/tito@latest
       
       - name: Install Semgrep
         run: pip install semgrep
       
       - name: Run TITO Scan
         run: |
-          atip scan \
+          tito scan \
             --repo . \
             --maestro \
             --semgrep \

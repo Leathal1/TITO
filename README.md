@@ -24,10 +24,10 @@ TITO combines **STRIDE-LM**, **MAESTRO** (agentic AI security), **Semgrep** SAST
 
 ```bash
 # Install
-go install github.com/Leathal1/TITO/cmd/atip@latest
+go install github.com/Leathal1/TITO/cmd/tito@latest
 
 # Scan a repository (full analysis)
-atip scan \
+tito scan \
   --repo https://github.com/your/app \
   --maestro \
   --semgrep \
@@ -89,7 +89,7 @@ Every finding enriched with relevant ATT&CK techniques across all 12 tactics.
 ```yaml
 - name: TITO Threat Model
   run: |
-    atip scan \
+    tito scan \
       --repo . \
       --maestro \
       --semgrep \

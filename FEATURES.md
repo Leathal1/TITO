@@ -73,7 +73,7 @@ Beautiful, interactive HTML visualization with D3.js.
 - Legend and controls (zoom, export SVG, toggle boundaries)
 - Standalone HTML file (all JS/CSS embedded)
 
-### 5. CLI Integration (`cmd/atip/main.go`)
+### 5. CLI Integration (`cmd/tito/main.go`)
 New command-line flags for all features.
 
 **New Flags:**

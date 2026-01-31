@@ -14,7 +14,7 @@ TITO now includes advanced threat modeling capabilities:
 ```bash
 # Build TITO
 cd /Users/stevenleath/TITO
-go build ./cmd/atip
+go build ./cmd/tito
 
 # Verify installation
 ./atip version
