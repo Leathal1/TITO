@@ -26,11 +26,40 @@ func (g *Generator3D) Generate3D(data *DiagramData, outputPath string) error {
 	// Replace placeholder in template
 	html := htmlTemplate3D
 	html = strings.Replace(html, "{{DIAGRAM_DATA}}", string(diagramJSON), 1)
+	html = strings.Replace(html, "{{ATTACK_PATHS}}", "[]", 1) // No attack paths
 	html = strings.Replace(html, "{{TITLE}}", data.Metadata.Title, -1)
 
 	// Write to file
 	if err := os.WriteFile(outputPath, []byte(html), 0644); err != nil {
 		return fmt.Errorf("failed to write 3D diagram: %w", err)
+	}
+
+	return nil
+}
+
+// Generate3DWithAttackPaths generates a 3D visualization with attack path overlay
+func (g *Generator3D) Generate3DWithAttackPaths(data *DiagramData, paths interface{}, outputPath string) error {
+	// Convert diagram data to JSON
+	diagramJSON, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal diagram data: %w", err)
+	}
+
+	// Convert attack paths to JSON
+	pathsJSON, err := json.MarshalIndent(paths, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal attack paths: %w", err)
+	}
+
+	// Replace placeholders in template
+	html := htmlTemplate3D
+	html = strings.Replace(html, "{{DIAGRAM_DATA}}", string(diagramJSON), 1)
+	html = strings.Replace(html, "{{ATTACK_PATHS}}", string(pathsJSON), 1)
+	html = strings.Replace(html, "{{TITLE}}", data.Metadata.Title, -1)
+
+	// Write to file
+	if err := os.WriteFile(outputPath, []byte(html), 0644); err != nil {
+		return fmt.Errorf("failed to write 3D diagram with attack paths: %w", err)
 	}
 
 	return nil

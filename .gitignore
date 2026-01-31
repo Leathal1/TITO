@@ -35,6 +35,12 @@ api_keys.txt
 # Build artifacts
 dist/
 atip
+tito
 coverage.out
 coverage.html
 work/
+
+# License server (separate repo)
+license-server/keys/
+license-server/.env
+license-server/*.db

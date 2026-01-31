@@ -11,16 +11,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Leathal1/TITO/pkg/attackpath"
 	"github.com/Leathal1/TITO/pkg/collectors"
 	"github.com/Leathal1/TITO/pkg/config"
 	"github.com/Leathal1/TITO/pkg/dashboard"
 	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/pkg/diff"
+	"github.com/Leathal1/TITO/pkg/diff/format"
+	"github.com/Leathal1/TITO/pkg/license"
 	"github.com/Leathal1/TITO/pkg/maestro"
 	"github.com/Leathal1/TITO/pkg/mapper"
 	"github.com/Leathal1/TITO/pkg/mitre"
 	"github.com/Leathal1/TITO/pkg/models"
 	"github.com/Leathal1/TITO/pkg/pipeline"
 	"github.com/Leathal1/TITO/pkg/reports"
+	"github.com/Leathal1/TITO/pkg/scan"
 	"github.com/Leathal1/TITO/pkg/scanner"
 	"github.com/Leathal1/TITO/pkg/semgrep"
 	"github.com/spf13/cobra"
@@ -66,8 +71,12 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(diffCmd)
+	rootCmd.AddCommand(attackPathsCmd)
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(complianceCmd)
+	rootCmd.AddCommand(apiCmd)
 }
 
 var initConfigCmd = &cobra.Command{
@@ -326,8 +335,10 @@ func init() {
 	scanCmd.Flags().Bool("semgrep", false, "Enable Semgrep static analysis")
 	scanCmd.Flags().Bool("dataflow", false, "Generate interactive data flow diagram HTML (2D)")
 	scanCmd.Flags().Bool("3d", false, "Generate 3D data flow visualization")
+	scanCmd.Flags().Bool("attack-paths", false, "Generate attack path analysis and overlay on 3D visualization")
 	scanCmd.Flags().Bool("mitre", false, "Enrich findings with MITRE ATT&CK mappings")
 	scanCmd.Flags().StringP("output", "o", "", "Output file for report/diagram")
+	scanCmd.Flags().String("save", "", "Save scan result to .tito.json file for later diffing")
 	scanCmd.MarkFlagRequired("repo")
 }
 
@@ -338,6 +349,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	enableSemgrep, _ := cmd.Flags().GetBool("semgrep")
 	enableDataflow, _ := cmd.Flags().GetBool("dataflow")
 	enable3D, _ := cmd.Flags().GetBool("3d")
+	enableAttackPaths, _ := cmd.Flags().GetBool("attack-paths")
 	enableMITRE, _ := cmd.Flags().GetBool("mitre")
 	outputFile, _ := cmd.Flags().GetString("output")
 
@@ -499,8 +511,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 		}
 		
-		// Generate 3D diagram
+		// Generate 3D diagram (Pro feature)
 		if enable3D {
+			if !license.IsPro() {
+				fmt.Println()
+				fmt.Println("🔒 3D visualization requires TITO Pro or Enterprise.")
+				fmt.Println("   The stunning 3D threat model brings your attack surface to life —")
+				fmt.Println("   explore data flows, trust boundaries, and attack paths interactively.")
+				fmt.Println("   → https://tito.security/pricing")
+				fmt.Println()
+				fmt.Println("💡 Your text-based threat report is still generated above!")
+				fmt.Println()
+			} else {
 			fmt.Println("🌌 Generating 3D data flow visualization...")
 			
 			// If both flags, add -3d suffix
@@ -517,13 +539,61 @@ func runScan(cmd *cobra.Command, args []string) error {
 			
 			// Generate 3D visualization
 			generator3D := dataflow.NewGenerator3D()
-			if err := generator3D.Generate3D(diagramData, diagram3DPath); err != nil {
-				return fmt.Errorf("3D diagram generation failed: %w", err)
+			
+			// Check if attack paths should be included
+			if enableAttackPaths {
+				fmt.Println("⚔️  Analyzing attack paths...")
+				
+				// Build attack graph
+				graphBuilder := attackpath.NewGraphBuilder(diagramData)
+				attackGraph := graphBuilder.Build()
+				
+				// Find critical paths — always find all, gate display
+				pathFinder := attackpath.NewPathFinder(attackGraph)
+				allPaths := pathFinder.FindCriticalPaths(10) // Get top 10 paths
+				
+				// Score and enhance all paths
+				scorer := attackpath.NewScorer(attackGraph)
+				narrativeGen := attackpath.NewNarrativeGenerator(attackGraph)
+				
+				for i := range allPaths {
+					allPaths[i].CompositeRisk = scorer.ScorePath(allPaths[i].Steps)
+					allPaths[i].MitreTactics = attackpath.ExtractMitreTactics(allPaths[i].Steps)
+					allPaths[i].Narrative = narrativeGen.GenerateNarrative(allPaths[i])
+				}
+				
+				fmt.Printf("✓ Found %d attack paths\n", len(allPaths))
+				
+				// Free tier: show top 3 paths in visualization, tease the rest
+				paths := allPaths
+				if !license.IsPro() && len(allPaths) > 3 {
+					paths = allPaths[:3]
+					fmt.Printf("  📊 Showing top 3 of %d attack paths (upgrade to Pro for all paths + narratives)\n", len(allPaths))
+					fmt.Println("     → https://tito.security/pricing")
+					// Strip narratives from free tier
+					for i := range paths {
+						paths[i].Narrative = fmt.Sprintf("Full attack narrative available with TITO Pro. Path risk: %.1f/10 — https://tito.security/pricing", paths[i].CompositeRisk)
+					}
+				}
+				
+				// Generate 3D with attack paths
+				if err := generator3D.Generate3DWithAttackPaths(diagramData, paths, diagram3DPath); err != nil {
+					return fmt.Errorf("3D diagram with attack paths generation failed: %w", err)
+				}
+			} else {
+				// Generate 3D without attack paths
+				if err := generator3D.Generate3D(diagramData, diagram3DPath); err != nil {
+					return fmt.Errorf("3D diagram generation failed: %w", err)
+				}
 			}
 			
 			fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
 			fmt.Println("  Open in browser to explore the stunning 3D threat model!")
+			if enableAttackPaths {
+				fmt.Println("  Click 'Show Attack Paths' button to see attack chains!")
+			}
 			fmt.Println()
+			} // end else (Pro licensed)
 		}
 	}
 
@@ -565,6 +635,87 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
+	// Save scan result if requested (Pro feature)
+	savePath, _ := cmd.Flags().GetString("save")
+	if savePath != "" {
+		if !license.IsPro() {
+			fmt.Println()
+			fmt.Println("🔒 Saving scan results requires TITO Pro or Enterprise.")
+			fmt.Println("   Save results to .tito.json for PR diffing and historical tracking.")
+			fmt.Println("   → https://tito.security/pricing")
+			savePath = "" // Skip saving
+		} else {
+			fmt.Println()
+			fmt.Printf("💾 Saving scan result to %s...\n", savePath)
+		}
+	}
+	if savePath != "" {
+		// Build attack paths for save
+		var attackPaths []attackpath.AttackPath
+		if enableAttackPaths {
+			generator := dataflow.NewGenerator()
+			diagramData := generator.BuildDiagramData(repo, processedThreats)
+			graphBuilder := attackpath.NewGraphBuilder(diagramData)
+			attackGraph := graphBuilder.Build()
+			pathFinder := attackpath.NewPathFinder(attackGraph)
+			attackPaths = pathFinder.FindCriticalPaths(10)
+			
+			scorer := attackpath.NewScorer(attackGraph)
+			narrativeGen := attackpath.NewNarrativeGenerator(attackGraph)
+			for i := range attackPaths {
+				attackPaths[i].CompositeRisk = scorer.ScorePath(attackPaths[i].Steps)
+				attackPaths[i].MitreTactics = attackpath.ExtractMitreTactics(attackPaths[i].Steps)
+				attackPaths[i].Narrative = narrativeGen.GenerateNarrative(attackPaths[i])
+			}
+		}
+		
+		// Get commit SHA if possible
+		commitSHA := ""
+		gitCmd := exec.Command("git", "-C", repo.LocalPath, "rev-parse", "HEAD")
+		if output, err := gitCmd.Output(); err == nil {
+			commitSHA = strings.TrimSpace(string(output))
+		}
+		
+		// Build scan result
+		scanResult := scan.NewScanResult()
+		scanResult.Repository = scan.RepositoryInfo{
+			URL:       repoURL,
+			Branch:    branch,
+			Language:  repo.Language,
+			Framework: repo.Framework,
+			CommitSHA: commitSHA,
+		}
+		scanResult.Assets = repo.Assets
+		scanResult.DataFlows = repo.DataFlows
+		scanResult.Dependencies = repo.Dependencies
+		scanResult.Threats = processedThreats
+		scanResult.MappedThreats = mappedThreats
+		scanResult.AttackPaths = attackPaths
+		
+		if err := scan.SaveResult(scanResult, savePath); err != nil {
+			fmt.Printf("⚠️  Warning: Failed to save scan result: %v\n", err)
+		} else {
+			fmt.Printf("✓ Scan result saved: %s\n", savePath)
+		}
+	}
+
+	// Show Pro upsell at end of scan if free tier
+	if !license.IsPro() {
+		fmt.Println()
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("⚡ Upgrade to TITO Pro for the full arsenal:")
+		fmt.Println("   • 3D interactive threat visualization")
+		fmt.Println("   • All attack paths + kill chain narratives")
+		fmt.Println("   • MAESTRO agentic AI threat analysis")
+		fmt.Println("   • MITRE ATT&CK enrichment")
+		fmt.Println("   • PR threat diffing (tito diff)")
+		fmt.Println("   • Save & compare scans over time")
+		fmt.Println("   • CI/CD integration with GitHub Actions")
+		fmt.Println("   → https://tito.security/pricing")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	}
+
+	fmt.Println()
 	fmt.Println("💡 Next steps:")
 	if enableDataflow || enable3D {
 		basePath := outputFile
@@ -576,7 +727,549 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Println("   tito scan --repo <url> --dataflow  # Generate 2D visualization")
 		fmt.Println("   tito scan --repo <url> --3d        # Generate stunning 3D visualization")
 	}
+	if savePath == "" {
+		fmt.Println("   tito scan --repo <url> --save scan.tito.json  # Save for PR diffing")
+	}
 	fmt.Println("   tito dashboard                     # Launch web dashboard")
+
+	return nil
+}
+
+var diffCmd = &cobra.Command{
+	Use:   "diff",
+	Short: "Compare threat models between two scans (PR diff)",
+	Long: `Compare threat models between two scan results and output what changed.
+
+Designed to run in CI on every pull request to catch security regressions.
+
+Examples:
+  # Compare two saved scan results
+  tito diff --before main.tito.json --after feature.tito.json
+
+  # Compare two branches (scans both automatically)
+  tito diff --repo https://github.com/user/repo --base main --head feature-branch
+
+  # Output formats
+  tito diff --before base.tito.json --after head.tito.json --format markdown
+  tito diff --before base.tito.json --after head.tito.json --format json
+  tito diff --before base.tito.json --after head.tito.json --format summary`,
+	RunE: runDiff,
+}
+
+func init() {
+	diffCmd.Flags().String("repo", "", "Repository URL (required for --base/--head mode)")
+	diffCmd.Flags().String("base", "", "Base branch (default: main)")
+	diffCmd.Flags().String("head", "", "Head branch (default: current branch / HEAD)")
+	diffCmd.Flags().String("before", "", "Path to base scan result (.tito.json)")
+	diffCmd.Flags().String("after", "", "Path to head scan result (.tito.json)")
+	diffCmd.Flags().String("format", "markdown", "Output format: markdown, json, summary")
+	diffCmd.Flags().String("output", "", "Write to file instead of stdout")
+	diffCmd.Flags().String("fail-on", "critical", "When to exit non-zero: critical, high, any, never")
+	diffCmd.Flags().String("save", "", "Save scan results to .tito.json files for later comparison")
+}
+
+func runDiff(cmd *cobra.Command, args []string) error {
+	repoURL, _ := cmd.Flags().GetString("repo")
+	baseBranch, _ := cmd.Flags().GetString("base")
+	headBranch, _ := cmd.Flags().GetString("head")
+	beforePath, _ := cmd.Flags().GetString("before")
+	afterPath, _ := cmd.Flags().GetString("after")
+	outputFormat, _ := cmd.Flags().GetString("format")
+	outputPath, _ := cmd.Flags().GetString("output")
+	failOn, _ := cmd.Flags().GetString("fail-on")
+	savePath, _ := cmd.Flags().GetString("save")
+
+	// Validate arguments
+	if beforePath == "" && afterPath == "" {
+		// Branch mode - need repo and branches
+		if repoURL == "" {
+			return fmt.Errorf("either --before/--after OR --repo/--base/--head must be specified")
+		}
+		if baseBranch == "" {
+			baseBranch = "main"
+		}
+		if headBranch == "" {
+			headBranch = "HEAD"
+		}
+	} else if beforePath != "" && afterPath != "" {
+		// File mode - good to go
+	} else {
+		return fmt.Errorf("both --before and --after must be specified together")
+	}
+
+	fmt.Println("🔄 TITO Threat Model Diff")
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Println()
+
+	var baseScan, headScan *scan.ScanResult
+	var err error
+
+	// Branch comparison mode
+	if beforePath == "" && afterPath == "" {
+		fmt.Printf("📊 Comparing branches: %s → %s\n", baseBranch, headBranch)
+		fmt.Println()
+
+		// Scan base branch
+		fmt.Printf("🔍 Scanning base branch (%s)...\n", baseBranch)
+		baseScan, err = performScan(repoURL, baseBranch, "base")
+		if err != nil {
+			return fmt.Errorf("base scan failed: %w", err)
+		}
+		fmt.Printf("✓ Base scan complete: %d threats, %.1f max risk\n", 
+			len(baseScan.Threats), baseScan.Stats.MaxRiskScore*10)
+
+		// Save base if requested
+		if savePath != "" {
+			baseFile := strings.Replace(savePath, ".tito.json", "-base.tito.json", 1)
+			if err := scan.SaveResult(baseScan, baseFile); err != nil {
+				fmt.Printf("⚠️  Warning: Failed to save base scan: %v\n", err)
+			} else {
+				fmt.Printf("💾 Base scan saved: %s\n", baseFile)
+			}
+		}
+		fmt.Println()
+
+		// Scan head branch
+		fmt.Printf("🔍 Scanning head branch (%s)...\n", headBranch)
+		headScan, err = performScan(repoURL, headBranch, "head")
+		if err != nil {
+			return fmt.Errorf("head scan failed: %w", err)
+		}
+		fmt.Printf("✓ Head scan complete: %d threats, %.1f max risk\n", 
+			len(headScan.Threats), headScan.Stats.MaxRiskScore*10)
+
+		// Save head if requested
+		if savePath != "" {
+			headFile := strings.Replace(savePath, ".tito.json", "-head.tito.json", 1)
+			if err := scan.SaveResult(headScan, headFile); err != nil {
+				fmt.Printf("⚠️  Warning: Failed to save head scan: %v\n", err)
+			} else {
+				fmt.Printf("💾 Head scan saved: %s\n", headFile)
+			}
+		}
+		fmt.Println()
+	} else {
+		// File comparison mode
+		fmt.Printf("📂 Loading scan results...\n")
+		fmt.Printf("   Base: %s\n", beforePath)
+		fmt.Printf("   Head: %s\n", afterPath)
+		fmt.Println()
+
+		baseScan, err = scan.LoadResult(beforePath)
+		if err != nil {
+			return fmt.Errorf("failed to load base scan: %w", err)
+		}
+
+		headScan, err = scan.LoadResult(afterPath)
+		if err != nil {
+			return fmt.Errorf("failed to load head scan: %w", err)
+		}
+
+		fmt.Printf("✓ Loaded base scan: %d threats, %.1f max risk\n", 
+			len(baseScan.Threats), baseScan.Stats.MaxRiskScore*10)
+		fmt.Printf("✓ Loaded head scan: %d threats, %.1f max risk\n", 
+			len(headScan.Threats), headScan.Stats.MaxRiskScore*10)
+		fmt.Println()
+	}
+
+	// Compute diff — Pro feature
+	if !license.IsPro() {
+		fmt.Println()
+		fmt.Println("⚡ TITO detected changes between scans:")
+		fmt.Printf("   Base: %d threats, %d assets\n", len(baseScan.Threats), len(baseScan.Assets))
+		fmt.Printf("   Head: %d threats, %d assets\n", len(headScan.Threats), len(headScan.Assets))
+		threatDelta := len(headScan.Threats) - len(baseScan.Threats)
+		assetDelta := len(headScan.Assets) - len(baseScan.Assets)
+		if threatDelta > 0 {
+			fmt.Printf("   ⚠️  +%d new threats detected\n", threatDelta)
+		} else if threatDelta < 0 {
+			fmt.Printf("   ✅ %d threats resolved\n", -threatDelta)
+		}
+		if assetDelta > 0 {
+			fmt.Printf("   📦 +%d new assets in attack surface\n", assetDelta)
+		}
+		fmt.Println()
+		fmt.Println("🔒 Full threat model diffing requires TITO Pro or Enterprise.")
+		fmt.Println("   Get detailed PR comments, risk deltas, and CI integration.")
+		fmt.Println("   → https://tito.security/pricing")
+		os.Exit(0)
+		return nil
+	}
+
+	fmt.Println("🔍 Computing threat model delta...")
+	diffResult := diff.ComputeDiff(baseScan, headScan)
+
+	// Determine verdict
+	verdictConfig := getVerdictConfig(failOn)
+	verdict, reason := diff.DetermineVerdict(diffResult, verdictConfig)
+	diffResult.Summary.RiskVerdict = verdict
+	diffResult.Summary.VerdictReason = reason
+
+	fmt.Printf("✓ Diff computed: %d total changes\n", diffResult.Summary.TotalChanges)
+	fmt.Printf("   Verdict: %s %s\n", diff.VerdictEmoji(verdict), verdict)
+	fmt.Println()
+
+	// Generate output
+	var output string
+	switch outputFormat {
+	case "markdown":
+		output = format.FormatMarkdown(diffResult)
+	case "json":
+		jsonBytes, err := format.FormatJSON(diffResult)
+		if err != nil {
+			return fmt.Errorf("JSON formatting failed: %w", err)
+		}
+		output = string(jsonBytes)
+	case "summary":
+		output = format.FormatSummary(diffResult)
+	default:
+		return fmt.Errorf("unknown format: %s (use: markdown, json, summary)", outputFormat)
+	}
+
+	// Write output
+	if outputPath != "" {
+		if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
+			return fmt.Errorf("failed to write output: %w", err)
+		}
+		fmt.Printf("✓ Output written to %s\n", outputPath)
+	} else {
+		fmt.Println(strings.Repeat("=", 50))
+		fmt.Println()
+		fmt.Println(output)
+	}
+
+	// Exit with appropriate code
+	os.Exit(diff.VerdictToExitCode(verdict))
+	return nil
+}
+
+// performScan runs a full scan on a repository branch
+func performScan(repoURL, branch, label string) (*scan.ScanResult, error) {
+	ctx := context.Background()
+	
+	// Create scanner with unique work dir for this branch
+	workDir := filepath.Join("./work", label)
+	s := scanner.NewScanner(workDir)
+	
+	// Scan repository
+	repo, err := s.ScanRepository(ctx, repoURL, branch)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Collect threats
+	codeAnalyzer := collectors.NewCodeAnalyzer(repo)
+	threats, err := codeAnalyzer.Collect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Process threats
+	processor := pipeline.NewProcessor(pipeline.ProcessorConfig{
+		MinPriority: 0.0,
+		MaxAgeDays:  365,
+	})
+	processedThreats, err := processor.Process(ctx, threats)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Map threats
+	threatMapper := mapper.NewThreatMapper(processedThreats)
+	mappedThreats, err := threatMapper.MapThreatsToRepository(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Get commit SHA
+	commitSHA := ""
+	gitCmd := exec.Command("git", "-C", repo.LocalPath, "rev-parse", "HEAD")
+	if output, err := gitCmd.Output(); err == nil {
+		commitSHA = strings.TrimSpace(string(output))
+	}
+	
+	// Build scan result
+	result := scan.NewScanResult()
+	result.Repository = scan.RepositoryInfo{
+		URL:       repoURL,
+		Branch:    branch,
+		Language:  repo.Language,
+		Framework: repo.Framework,
+		CommitSHA: commitSHA,
+	}
+	result.Assets = repo.Assets
+	result.DataFlows = repo.DataFlows
+	result.Dependencies = repo.Dependencies
+	result.Threats = processedThreats
+	result.MappedThreats = mappedThreats
+	result.AttackPaths = []attackpath.AttackPath{} // Empty for diff mode
+	result.CalculateStats()
+	
+	return result, nil
+}
+
+// getVerdictConfig maps fail-on flag to verdict configuration
+func getVerdictConfig(failOn string) diff.VerdictConfig {
+	switch failOn {
+	case "critical":
+		return diff.FailOnCriticalConfig()
+	case "high":
+		return diff.FailOnHighConfig()
+	case "any":
+		return diff.FailOnAnyConfig()
+	case "never":
+		return diff.VerdictConfig{
+			FailOnCritical:     false,
+			FailOnHigh:         false,
+			FailOnRiskIncrease: false,
+			WarnOnHigh:         true,
+			WarnOnRiskIncrease: true,
+		}
+	default:
+		return diff.FailOnCriticalConfig()
+	}
+}
+
+var attackPathsCmd = &cobra.Command{
+	Use:   "attack-paths",
+	Short: "Generate attack path analysis and kill chain visualization",
+	Long: `Analyze attack paths through your application from entry points to crown jewels.
+
+This feature chains individual findings into realistic multi-step attack paths,
+answering: "If an attacker lands here, what's the worst-case path to crown jewels?"
+
+Like BloodHound, but for application-layer threat models.
+
+Examples:
+  tito attack-paths --repo https://github.com/user/repo
+  tito attack-paths --repo . --top 5 --3d
+  tito attack-paths --repo . --target database --narrative`,
+	RunE: runAttackPaths,
+}
+
+func init() {
+	attackPathsCmd.Flags().StringP("repo", "r", "", "Repository URL to scan (required)")
+	attackPathsCmd.Flags().StringP("branch", "b", "", "Branch to scan (default: main)")
+	attackPathsCmd.Flags().String("target", "", "Filter crown jewels by type or name")
+	attackPathsCmd.Flags().Int("top", 5, "Show top N most dangerous paths")
+	attackPathsCmd.Flags().Bool("3d", false, "Generate 3D visualization with attack path overlay")
+	attackPathsCmd.Flags().Bool("narrative", false, "Print human-readable attack narratives")
+	attackPathsCmd.Flags().StringP("output", "o", "attack-paths.html", "Output file")
+	attackPathsCmd.MarkFlagRequired("repo")
+}
+
+func runAttackPaths(cmd *cobra.Command, args []string) error {
+	repoURL, _ := cmd.Flags().GetString("repo")
+	branch, _ := cmd.Flags().GetString("branch")
+	_ , _ = cmd.Flags().GetString("target") // targetFilter - reserved for future filtering
+	topN, _ := cmd.Flags().GetInt("top")
+	enable3D, _ := cmd.Flags().GetBool("3d")
+	enableNarrative, _ := cmd.Flags().GetBool("narrative")
+	outputFile, _ := cmd.Flags().GetString("output")
+
+	if branch == "" {
+		branch = "main"
+	}
+
+	fmt.Println("⚔️  TITO Attack Path Analysis")
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Println()
+
+	// Step 1: Scan repository
+	fmt.Println("🔍 Scanning repository...")
+	ctx := context.Background()
+	
+	s := scanner.NewScanner("./work")
+	repo, err := s.ScanRepository(ctx, repoURL, branch)
+	if err != nil {
+		return fmt.Errorf("repository scan failed: %w", err)
+	}
+
+	// Step 2: Run threat analysis
+	fmt.Println("🎯 Analyzing code for threats...")
+	codeAnalyzer := collectors.NewCodeAnalyzer(repo)
+	threats, err := codeAnalyzer.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("code analysis failed: %w", err)
+	}
+	
+	// Process threats
+	processor := pipeline.NewProcessor(pipeline.ProcessorConfig{
+		MinPriority: 0.0,
+		MaxAgeDays:  365,
+	})
+	processedThreats, _ := processor.Process(ctx, threats)
+	
+	// Map threats to repository
+	m := mapper.NewThreatMapper(processedThreats)
+	_, _ = m.MapThreatsToRepository(ctx, repo)
+
+	// Step 3: Build diagram data
+	fmt.Println("🏗️  Building data flow graph...")
+	generator := dataflow.NewGenerator()
+	diagramData := generator.BuildDiagramData(repo, processedThreats)
+
+	// Step 4: Build attack graph
+	fmt.Println("🕸️  Constructing attack graph...")
+	graphBuilder := attackpath.NewGraphBuilder(diagramData)
+	attackGraph := graphBuilder.Build()
+
+	fmt.Printf("\n📍 Entry Points: %d\n", len(attackGraph.EntryPoints))
+	for _, ep := range attackGraph.EntryPoints {
+		if node := attackGraph.Nodes[ep]; node != nil {
+			fmt.Printf("   - %s (%s)\n", node.Label, node.Zone)
+		}
+	}
+
+	fmt.Printf("\n🏆 Crown Jewels: %d\n", len(attackGraph.CrownJewels))
+	for _, cj := range attackGraph.CrownJewels {
+		if node := attackGraph.Nodes[cj]; node != nil {
+			fmt.Printf("   - %s (%s, risk: %s)\n", node.Label, node.NodeType, node.RiskLevel)
+		}
+	}
+	fmt.Println()
+
+	// Step 5: Find attack paths
+	fmt.Println("🎯 Finding attack paths...")
+	pathFinder := attackpath.NewPathFinder(attackGraph)
+	paths := pathFinder.FindCriticalPaths(topN)
+
+	if len(paths) == 0 {
+		fmt.Println("✓ No attack paths found! Your system appears well-segmented.")
+		return nil
+	}
+
+	// Step 6: Score and enhance paths
+	scorer := attackpath.NewScorer(attackGraph)
+	narrativeGen := attackpath.NewNarrativeGenerator(attackGraph)
+
+	for i := range paths {
+		paths[i].CompositeRisk = scorer.ScorePath(paths[i].Steps)
+		paths[i].MitreTactics = attackpath.ExtractMitreTactics(paths[i].Steps)
+		paths[i].Narrative = narrativeGen.GenerateNarrative(paths[i])
+	}
+
+	// Free tier: show top 3, gate the rest
+	displayPaths := paths
+	freeLimit := 3
+	isPro := license.IsPro()
+	if !isPro && len(paths) > freeLimit {
+		displayPaths = paths[:freeLimit]
+	}
+
+	// Step 7: Display results
+	fmt.Printf("Found %d attack paths.", len(paths))
+	if !isPro && len(paths) > freeLimit {
+		fmt.Printf(" Showing top %d (Pro unlocks all %d + narratives)", freeLimit, len(paths))
+	}
+	fmt.Println()
+	fmt.Println()
+
+	for i, path := range displayPaths {
+		emoji := attackpath.GetRiskEmoji(path.CompositeRisk)
+		riskLevel := attackpath.GetRiskLevel(path.CompositeRisk)
+
+		fmt.Printf("%s %s Path #%d (Risk: %.1f/10.0)\n", emoji, riskLevel, i+1, path.CompositeRisk)
+		
+		entryNode := attackGraph.Nodes[path.EntryPoint]
+		targetNode := attackGraph.Nodes[path.Target]
+		
+		if entryNode != nil && targetNode != nil {
+			fmt.Printf("   %s → ... → %s\n", entryNode.Label, targetNode.Label)
+		}
+		fmt.Printf("   Steps: %d | Difficulty: %s | Boundaries Crossed: %d\n",
+			len(path.Steps),
+			getDifficultyLevel(path.TotalDifficulty),
+			countTrustBoundariesCrossed(path.Steps, attackGraph))
+
+		if len(path.MitreTactics) > 0 {
+			fmt.Printf("   ATT&CK Chain: %s\n", strings.Join(path.MitreTactics, " → "))
+		}
+
+		if enableNarrative {
+			if isPro {
+				fmt.Println()
+				fmt.Println("   Narrative:")
+				lines := strings.Split(path.Narrative, "\n")
+				for _, line := range lines {
+					if line != "" {
+						fmt.Printf("   %s\n", line)
+					}
+				}
+			} else if i == 0 {
+				// Show first narrative as teaser, gate the rest
+				fmt.Println()
+				fmt.Println("   Narrative (preview):")
+				narrativeLines := strings.Split(path.Narrative, "\n")
+				for j, line := range narrativeLines {
+					if j >= 3 { // Show first 3 lines only
+						fmt.Println("   ... [full narrative requires TITO Pro]")
+						break
+					}
+					if line != "" {
+						fmt.Printf("   %s\n", line)
+					}
+				}
+			} else {
+				fmt.Println("   📝 Narrative: [requires TITO Pro]")
+			}
+		}
+		fmt.Println()
+	}
+
+	// Show gated paths teaser
+	if !isPro && len(paths) > freeLimit {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Printf("🔒 +%d more attack paths hidden (TITO Pro)\n", len(paths)-freeLimit)
+		for i := freeLimit; i < len(paths) && i < freeLimit+3; i++ {
+			emoji := attackpath.GetRiskEmoji(paths[i].CompositeRisk)
+			entry := attackGraph.Nodes[paths[i].EntryPoint]
+			target := attackGraph.Nodes[paths[i].Target]
+			if entry != nil && target != nil {
+				fmt.Printf("   %s %.1f/10 — %s → %s [locked]\n", emoji, paths[i].CompositeRisk, entry.Label, target.Label)
+			}
+		}
+		if len(paths) > freeLimit+3 {
+			fmt.Printf("   ... and %d more\n", len(paths)-freeLimit-3)
+		}
+		fmt.Println("   → https://tito.security/pricing")
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+		fmt.Println()
+	}
+
+	// Step 8: Generate visualization (Pro feature)
+	if enable3D {
+		if !isPro {
+			fmt.Println()
+			fmt.Println("🔒 3D visualization requires TITO Pro or Enterprise.")
+			fmt.Println("   The stunning 3D threat model brings your attack surface to life —")
+			fmt.Println("   explore data flows, trust boundaries, and attack paths interactively.")
+			fmt.Println("   → https://tito.security/pricing")
+			fmt.Println()
+			fmt.Println("💡 Your text-based attack path analysis is still shown above!")
+			fmt.Println()
+		} else {
+			fmt.Println("🌌 Generating 3D visualization with attack paths...")
+			generator3D := dataflow.NewGenerator3D()
+			vizPaths := displayPaths
+
+			if err := generator3D.Generate3DWithAttackPaths(diagramData, vizPaths, outputFile); err != nil {
+				return fmt.Errorf("3D visualization generation failed: %w", err)
+			}
+			fmt.Printf("✓ 3D visualization generated: %s\n", outputFile)
+			fmt.Println("  Open in browser to explore interactive attack paths!")
+			fmt.Println()
+		}
+	}
+
+	fmt.Println("💡 Next steps:")
+	fmt.Printf("   Review the %d critical paths above\n", min(topN, len(displayPaths)))
+	if enable3D {
+		fmt.Printf("   Open %s to visualize attack paths in 3D\n", outputFile)
+	} else {
+		fmt.Println("   Run with --3d to generate interactive visualization")
+	}
+	fmt.Println("   Implement mitigations to break the attack chains")
 
 	return nil
 }
@@ -629,6 +1322,120 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server failed: %w", err)
 	}
 
+	return nil
+}
+
+// --- Enterprise-only commands ---
+
+var complianceCmd = &cobra.Command{
+	Use:   "compliance",
+	Short: "Map threats to compliance frameworks (Enterprise)",
+	Long: `Map discovered threats and controls to compliance frameworks.
+
+Supported frameworks:
+  - SOC 2 Type II
+  - ISO 27001
+  - NIST 800-53
+  - PCI DSS 4.0
+  - HIPAA
+
+Generates a compliance gap analysis showing which controls are
+satisfied by your current architecture and where gaps remain.
+
+Examples:
+  tito compliance --repo . --framework soc2
+  tito compliance --repo . --framework iso27001 --output compliance-report.md`,
+	RunE: runCompliance,
+}
+
+func init() {
+	complianceCmd.Flags().StringP("repo", "r", "", "Repository URL or local path")
+	complianceCmd.Flags().String("framework", "soc2", "Compliance framework (soc2, iso27001, nist800-53, pci-dss, hipaa)")
+	complianceCmd.Flags().StringP("output", "o", "compliance-report.md", "Output file")
+	complianceCmd.MarkFlagRequired("repo")
+}
+
+func runCompliance(cmd *cobra.Command, args []string) error {
+	if !license.IsEnterprise() {
+		fmt.Println()
+		fmt.Println("🏢 Compliance mapping is an Enterprise feature.")
+		fmt.Println("   Map threats to SOC 2, ISO 27001, NIST 800-53, PCI DSS, and HIPAA.")
+		fmt.Println("   Generate audit-ready compliance gap reports from your threat model.")
+		fmt.Println()
+		if license.IsPro() {
+			fmt.Println("   You're on TITO Pro — upgrade to Enterprise to unlock compliance mapping.")
+		} else {
+			fmt.Println("   Available with TITO Enterprise ($99/mo).")
+		}
+		fmt.Println("   → https://tito.security/pricing")
+		return nil
+	}
+
+	// TODO: Implement compliance mapping engine
+	framework, _ := cmd.Flags().GetString("framework")
+	repoURL, _ := cmd.Flags().GetString("repo")
+	output, _ := cmd.Flags().GetString("output")
+	fmt.Printf("🏢 TITO Compliance Mapping — %s\n", strings.ToUpper(framework))
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Printf("   Repository: %s\n", repoURL)
+	fmt.Printf("   Output: %s\n", output)
+	fmt.Println()
+	fmt.Println("⚠️  Compliance mapping engine is under active development.")
+	fmt.Println("   This feature will be available in TITO v1.1.")
+	return nil
+}
+
+var apiCmd = &cobra.Command{
+	Use:   "api",
+	Short: "Start the TITO API server (Enterprise)",
+	Long: `Start the TITO REST API server for programmatic access.
+
+The API provides:
+  - POST /api/v1/scan — Trigger repository scans
+  - GET  /api/v1/scans — List scan results
+  - GET  /api/v1/scan/:id — Get scan details
+  - POST /api/v1/diff — Compare two scans
+  - GET  /api/v1/attack-paths/:id — Get attack paths
+  - WebSocket /ws/events — Real-time scan events
+
+Designed for integration with internal tooling, dashboards, and
+automated security pipelines.
+
+Examples:
+  tito api --port 9090
+  tito api --port 9090 --token myapikey`,
+	RunE: runAPI,
+}
+
+func init() {
+	apiCmd.Flags().IntP("port", "p", 9090, "API server port")
+	apiCmd.Flags().String("token", "", "API authentication token")
+}
+
+func runAPI(cmd *cobra.Command, args []string) error {
+	if !license.IsEnterprise() {
+		fmt.Println()
+		fmt.Println("🏢 API access is an Enterprise feature.")
+		fmt.Println("   Integrate TITO into your security toolchain with a full REST API.")
+		fmt.Println("   Programmatic scanning, results retrieval, and real-time events.")
+		fmt.Println()
+		if license.IsPro() {
+			fmt.Println("   You're on TITO Pro — upgrade to Enterprise to unlock API access.")
+		} else {
+			fmt.Println("   Available with TITO Enterprise ($99/mo).")
+		}
+		fmt.Println("   → https://tito.security/pricing")
+		return nil
+	}
+
+	// TODO: Implement REST API server
+	port, _ := cmd.Flags().GetInt("port")
+	fmt.Println("🏢 TITO API Server")
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Printf("   Port: %d\n", port)
+	fmt.Println()
+	fmt.Println("⚠️  API server is under active development.")
+	fmt.Println("   This feature will be available in TITO v1.1.")
 	return nil
 }
 
@@ -767,4 +1574,44 @@ func openBrowser(url string) {
 	if cmd != "" {
 		exec.Command(cmd, args...).Start()
 	}
+}
+
+func getDifficultyLevel(difficulty float64) string {
+	if difficulty < 0.1 {
+		return "TRIVIAL"
+	} else if difficulty < 0.3 {
+		return "LOW"
+	} else if difficulty < 0.6 {
+		return "MEDIUM"
+	} else if difficulty < 0.8 {
+		return "HIGH"
+	}
+	return "VERY HIGH"
+}
+
+func countTrustBoundariesCrossed(steps []attackpath.AttackStep, graph *attackpath.AttackGraph) int {
+	if len(steps) == 0 {
+		return 0
+	}
+
+	count := 0
+	prevZone := ""
+
+	for _, step := range steps {
+		fromNode := graph.Nodes[step.FromNode]
+		toNode := graph.Nodes[step.ToNode]
+
+		if fromNode != nil && toNode != nil {
+			if prevZone == "" {
+				prevZone = fromNode.Zone
+			}
+
+			if toNode.Zone != prevZone {
+				count++
+				prevZone = toNode.Zone
+			}
+		}
+	}
+
+	return count
 }

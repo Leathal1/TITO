@@ -306,6 +306,107 @@ const htmlTemplate3D = `<!DOCTYPE html>
             color: rgba(255, 255, 255, 0.6);
             z-index: 200;
         }
+
+        /* Attack Paths Panel */
+        #attack-paths-panel {
+            position: absolute;
+            top: 110px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 101;
+            box-shadow: 0 8px 32px rgba(255, 0, 0, 0.2);
+            min-width: 350px;
+            max-width: 400px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .attack-path-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 4px solid;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .attack-path-item:hover {
+            background: rgba(0, 0, 0, 0.5);
+            transform: translateX(-3px);
+        }
+
+        .attack-path-item.critical { border-color: #ff0040; }
+        .attack-path-item.high { border-color: #ff6600; }
+        .attack-path-item.medium { border-color: #ffcc00; }
+        .attack-path-item.low { border-color: #00ff88; }
+
+        .attack-path-item.active {
+            background: rgba(255, 68, 68, 0.2);
+            border-width: 4px;
+        }
+
+        .attack-path-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .attack-path-risk {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .attack-path-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .attack-path-summary {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+
+        .attack-path-stats {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .play-attack-btn {
+            margin-top: 10px;
+            width: 100%;
+            background: rgba(255, 68, 68, 0.3);
+            border-color: #ff4444;
+        }
+
+        .play-attack-btn:hover {
+            background: rgba(255, 68, 68, 0.5);
+        }
+
+        #attack-paths-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #attack-paths-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #attack-paths-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 68, 68, 0.3);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -346,6 +447,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
         <button id="toggle-labels">🏷️ Toggle Labels</button>
         <button id="toggle-boundaries">🛡️ Toggle Boundaries</button>
         <button id="toggle-particles">✨ Toggle Particles</button>
+        <button id="toggle-attack-paths">⚔️ Show Attack Paths</button>
         <button id="export-screenshot">📸 Export Screenshot</button>
     </div>
 
@@ -354,13 +456,22 @@ const htmlTemplate3D = `<!DOCTYPE html>
         <div id="info-content"></div>
     </div>
 
-    <script src="https://unpkg.com/three@0.170.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/3d-force-graph@1.77.4/dist/3d-force-graph.min.js"></script>
+    <div id="attack-paths-panel" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 18px; color: #ff4444;">⚔️ Attack Paths</h2>
+            <button class="close-btn" onclick="closeAttackPathsPanel()">×</button>
+        </div>
+        <div id="attack-paths-list"></div>
+    </div>
+
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.74.0/dist/3d-force-graph.min.js"></script>
 
     <script>
 
         // Data from Go
         const rawData = {{DIAGRAM_DATA}};
+        const attackPaths = {{ATTACK_PATHS}};
 
         // Transform data for 3d-force-graph
         const graphData = {
@@ -387,6 +498,8 @@ const htmlTemplate3D = `<!DOCTYPE html>
         let labelsVisible = true;
         let boundariesVisible = true;
         let particlesVisible = true;
+        let currentAttackPath = null;
+        let attackPathParticles = [];
         let autoRotate = true;
         let lastInteraction = Date.now();
 
@@ -671,6 +784,165 @@ const htmlTemplate3D = `<!DOCTYPE html>
             link.href = dataURL;
             link.click();
         });
+
+        // Attack paths control
+        document.getElementById('toggle-attack-paths').addEventListener('click', () => {
+            const panel = document.getElementById('attack-paths-panel');
+            const isVisible = panel.style.display !== 'none';
+            panel.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible && attackPaths && attackPaths.length > 0) {
+                initializeAttackPathsPanel();
+            }
+        });
+
+        function closeAttackPathsPanel() {
+            document.getElementById('attack-paths-panel').style.display = 'none';
+            clearAttackPathHighlight();
+        }
+        window.closeAttackPathsPanel = closeAttackPathsPanel;
+
+        function initializeAttackPathsPanel() {
+            const list = document.getElementById('attack-paths-list');
+            if (!attackPaths || attackPaths.length === 0) {
+                list.innerHTML = '<div style="color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">No attack paths found</div>';
+                return;
+            }
+
+            let html = '';
+            attackPaths.forEach((path, index) => {
+                const riskLevel = getRiskLevel(path.compositeRisk);
+                const riskClass = riskLevel.toLowerCase();
+                const emoji = getRiskEmoji(path.compositeRisk);
+                
+                html += ` + "`" + `
+                    <div class="attack-path-item ${riskClass}" id="attack-path-${index}" onclick="selectAttackPath(${index})">
+                        <div class="attack-path-header">
+                            <span class="attack-path-risk">${emoji} ${riskLevel}</span>
+                            <span style="font-size: 18px; font-weight: 700; color: #ff4444;">${path.compositeRisk.toFixed(1)}/10</span>
+                        </div>
+                        <div class="attack-path-title">
+                            Path #${index + 1}: ${path.steps.length} steps
+                        </div>
+                        <div class="attack-path-summary">
+                            ${getGraphNode(path.entryPoint)?.label || path.entryPoint} → 
+                            ${getGraphNode(path.target)?.label || path.target}
+                        </div>
+                        <div class="attack-path-stats">
+                            Difficulty: ${getDifficultyLevel(path.totalDifficulty)}<br>
+                            ${path.mitreTactics && path.mitreTactics.length > 0 ? 'Tactics: ' + path.mitreTactics.slice(0, 3).join(', ') : ''}
+                        </div>
+                    </div>
+                ` + "`" + `;
+            });
+
+            list.innerHTML = html;
+        }
+
+        function selectAttackPath(index) {
+            currentAttackPath = index;
+            
+            // Update active state
+            document.querySelectorAll('.attack-path-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+
+            // Highlight path on graph
+            highlightAttackPath(attackPaths[index]);
+        }
+        window.selectAttackPath = selectAttackPath;
+
+        function highlightAttackPath(path) {
+            if (!path || !path.steps) return;
+
+            // Clear previous highlights
+            clearAttackPathHighlight();
+
+            // Collect nodes and links in path
+            const pathNodeIds = new Set();
+            const pathLinkIds = new Set();
+
+            pathNodeIds.add(path.entryPoint);
+            path.steps.forEach(step => {
+                pathNodeIds.add(step.fromNode);
+                pathNodeIds.add(step.toNode);
+                pathLinkIds.add(step.fromNode + '-' + step.toNode);
+            });
+
+            // Highlight nodes - set a property the graph can read
+            graphData.nodes.forEach(node => {
+                node.__inAttackPath = pathNodeIds.has(node.id);
+                node.__isEntryPoint = node.id === path.entryPoint;
+                node.__isTarget = node.id === path.target;
+            });
+
+            // Highlight links
+            graphData.links.forEach(link => {
+                const linkId = link.source.id ? link.source.id + '-' + link.target.id : link.source + '-' + link.target;
+                link.__inAttackPath = pathLinkIds.has(linkId);
+            });
+
+            // Force graph update
+            Graph.nodeColor(node => {
+                if (node.__isEntryPoint) return '#00ff00';
+                if (node.__isTarget) return '#ff0040';
+                if (node.__inAttackPath) return '#ff4444';
+                return riskConfig[node.riskLevel]?.color || 0x888888;
+            });
+
+            Graph.linkColor(link => {
+                if (link.__inAttackPath) return '#ff4444';
+                return link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)';
+            });
+
+            Graph.linkWidth(link => link.__inAttackPath ? 4 : 1);
+            Graph.linkDirectionalParticles(link => link.__inAttackPath ? 8 : (particlesVisible ? 2 : 0));
+            Graph.linkDirectionalParticleSpeed(link => link.__inAttackPath ? 0.01 : 0.005);
+        }
+
+        function clearAttackPathHighlight() {
+            graphData.nodes.forEach(node => {
+                node.__inAttackPath = false;
+                node.__isEntryPoint = false;
+                node.__isTarget = false;
+            });
+
+            graphData.links.forEach(link => {
+                link.__inAttackPath = false;
+            });
+
+            // Reset colors
+            Graph.nodeColor(node => riskConfig[node.riskLevel]?.color || 0x888888);
+            Graph.linkColor(link => link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)');
+            Graph.linkWidth(1);
+            Graph.linkDirectionalParticles(link => particlesVisible ? 2 : 0);
+            Graph.linkDirectionalParticleSpeed(0.005);
+        }
+
+        function getRiskLevel(score) {
+            if (score >= 8.0) return 'CRITICAL';
+            if (score >= 6.0) return 'HIGH';
+            if (score >= 4.0) return 'MEDIUM';
+            return 'LOW';
+        }
+
+        function getRiskEmoji(score) {
+            if (score >= 8.0) return '🔴';
+            if (score >= 6.0) return '🟠';
+            if (score >= 4.0) return '🟡';
+            return '🟢';
+        }
+
+        function getDifficultyLevel(difficulty) {
+            if (difficulty < 0.1) return 'TRIVIAL';
+            if (difficulty < 0.3) return 'LOW';
+            if (difficulty < 0.6) return 'MEDIUM';
+            if (difficulty < 0.8) return 'HIGH';
+            return 'VERY HIGH';
+        }
+
+        function getGraphNode(nodeId) {
+            return graphData.nodes.find(n => n.id === nodeId);
+        }
 
         // Initialize overview stats
         const stats = document.getElementById('overview-stats');
