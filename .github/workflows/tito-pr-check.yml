@@ -1,0 +1,143 @@
+name: TITO Threat Model Check
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  threat-check:
+    runs-on: ubuntu-latest
+    name: Threat Model Diff
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install TITO
+        run: |
+          go install github.com/Leathal1/TITO/cmd/tito@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Verify TITO installation
+        run: tito version
+
+      - name: Run Threat Diff
+        id: threat-diff
+        continue-on-error: true
+        run: |
+          echo "Running TITO threat model diff..."
+          
+          # Run diff between base and head branches
+          tito diff \
+            --repo . \
+            --base ${{ github.event.pull_request.base.ref }} \
+            --head ${{ github.event.pull_request.head.ref }} \
+            --format markdown \
+            --output threat-diff.md \
+            --fail-on critical
+          
+          # Capture exit code
+          TITO_EXIT_CODE=$?
+          echo "exit_code=$TITO_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Output summary to console
+          echo "=== TITO Threat Model Summary ==="
+          tito diff \
+            --repo . \
+            --base ${{ github.event.pull_request.base.ref }} \
+            --head ${{ github.event.pull_request.head.ref }} \
+            --format summary
+          
+          exit $TITO_EXIT_CODE
+
+      - name: Read threat diff report
+        id: read-report
+        if: always()
+        run: |
+          if [ -f threat-diff.md ]; then
+            echo "Report file exists"
+            # Escape special characters for GitHub Actions
+            REPORT=$(cat threat-diff.md)
+            echo "report<<EOF" >> $GITHUB_OUTPUT
+            echo "$REPORT" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "report=⚠️ Threat model diff report was not generated" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const report = `${{ steps.read-report.outputs.report }}`;
+            
+            // Find existing TITO comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const titoComment = comments.find(comment => 
+              comment.body.includes('🛡️ TITO Threat Model Delta')
+            );
+            
+            // Update or create comment
+            if (titoComment) {
+              await github.rest.issues.updateComment({
+                comment_id: titoComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            }
+
+      - name: Check threat model verdict
+        if: always()
+        run: |
+          EXIT_CODE=${{ steps.threat-diff.outputs.exit_code }}
+          
+          if [ "$EXIT_CODE" == "0" ]; then
+            echo "✅ PASS: Threat model check passed"
+            exit 0
+          elif [ "$EXIT_CODE" == "1" ]; then
+            echo "⚠️ WARN: New threats detected (non-blocking)"
+            exit 0
+          elif [ "$EXIT_CODE" == "2" ]; then
+            echo "❌ FAIL: Critical security regression detected"
+            echo "::error::Critical security threats detected. Review the TITO report on this PR."
+            exit 1
+          else
+            echo "⚠️ UNKNOWN: Threat model check had an unexpected result"
+            exit 0
+          fi
+
+      - name: Upload threat diff artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: threat-model-diff
+          path: |
+            threat-diff.md
+            *.tito.json
+          retention-days: 30
