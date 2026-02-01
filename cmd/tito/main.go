@@ -349,6 +349,7 @@ func init() {
 	scanCmd.Flags().Bool("pci", false, "Enable PCI DSS v4.0 specific checks and compliance section")
 	scanCmd.Flags().StringP("output", "o", "", "Output file for report/diagram")
 	scanCmd.Flags().String("save", "", "Save scan result to .tito.json file for later diffing")
+	scanCmd.Flags().String("report", "", "Generate a standard threat model report (markdown)")
 	scanCmd.MarkFlagRequired("repo")
 }
 
@@ -765,7 +766,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Top threats
+	// Top threats with file locations
 	if len(mappedThreats) > 0 {
 		fmt.Println()
 		fmt.Println("  Top Threats:")
@@ -777,6 +778,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 			fmt.Printf("    [%s] %s%s — Risk: %.2f\n",
 				item.CategoryCode, truncate(item.Threat.Title, 55), instanceStr, item.RiskScore)
+			// Show top file locations for this threat
+			shown := 0
+			seen := make(map[string]bool)
+			for _, mt := range mappedThreats {
+				if mt.Threat.Title == item.Threat.Title && shown < 3 {
+					for _, a := range mt.Assets {
+						if a.Location.File != "" && !seen[a.Location.File] && shown < 3 {
+							seen[a.Location.File] = true
+							if a.Location.Line > 0 {
+								fmt.Printf("        → %s:%d\n", a.Location.File, a.Location.Line)
+							} else {
+								fmt.Printf("        → %s\n", a.Location.File)
+							}
+							shown++
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -853,6 +872,32 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	fmt.Println(strings.Repeat("─", 60))
+
+	// Generate standard report if requested
+	reportPath, _ := cmd.Flags().GetString("report")
+	if reportPath != "" {
+		archStr := ""
+		if repo.Architecture != nil {
+			archStr = repo.Architecture.PrimaryType.String()
+		}
+		reportData := &reports.ScanReportData{
+			Repository:    repoURL,
+			Branch:        branch,
+			Language:       repo.Language,
+			Framework:      repo.Framework,
+			Architecture:   archStr,
+			Assets:         repo.Assets,
+			DataFlows:      repo.DataFlows,
+			Dependencies:   repo.Dependencies,
+			Threats:        processedThreats,
+			MappedThreats:  mappedThreats,
+			SemgrepCount:   len(semgrepFindings),
+		}
+		if err := reports.GenerateScanReport(reportData, reportPath); err != nil {
+			return fmt.Errorf("report generation failed: %w", err)
+		}
+		fmt.Printf("\n📄 Threat model report: %s\n", reportPath)
+	}
 
 	// Save scan result if requested
 	savePath, _ := cmd.Flags().GetString("save")
