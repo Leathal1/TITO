@@ -40,8 +40,8 @@ func DetermineVerdict(diff *DiffResult, config VerdictConfig) (string, string) {
 			diff.RiskDelta.BaseMaxRisk*10, diff.RiskDelta.HeadMaxRisk*10)
 	}
 
-	// Check max risk threshold
-	if diff.RiskDelta.HeadMaxRisk > config.MaxRiskThreshold {
+	// Check max risk threshold (skip if threshold is unset/zero)
+	if config.MaxRiskThreshold > 0 && diff.RiskDelta.HeadMaxRisk > config.MaxRiskThreshold {
 		return "FAIL", fmt.Sprintf("Risk score %.2f exceeds threshold %.2f",
 			diff.RiskDelta.HeadMaxRisk*10, config.MaxRiskThreshold*10)
 	}

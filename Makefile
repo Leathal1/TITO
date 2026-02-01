@@ -15,18 +15,6 @@ build:
 	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/tito
 	@echo "✓ Built $(BINARY_NAME)"
 
-build-free:
-	@echo "🔨 Building $(BINARY_NAME) (Free Edition)..."
-	@echo "   (Runtime license checks still active)"
-	go build $(LDFLAGS) -o $(BINARY_NAME)-free ./cmd/tito
-	@echo "✓ Built $(BINARY_NAME)-free"
-
-build-pro:
-	@echo "🔨 Building $(BINARY_NAME) (Pro Edition)..."
-	go build $(LDFLAGS) -o $(BINARY_NAME)-pro ./cmd/tito
-	@echo "✓ Built $(BINARY_NAME)-pro"
-	@echo "   Note: Pro features still require valid license key"
-
 test:
 	@echo "🧪 Running tests..."
 	go test -v ./...

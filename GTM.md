@@ -13,15 +13,16 @@
 
 ## Pricing
 
-| Tier | Price | What You Get |
-|------|-------|--------------|
-| **Free** | $0 | STRIDE-LM + markdown reports + basic Semgrep. CLI, unlimited local scans. |
-| **Pro** | $49/mo per org | MAESTRO + MITRE ATT&CK + interactive D3.js/3D diagrams + full Semgrep mapping + GitHub Action |
-| **Enterprise** | $499/mo | Everything Pro + team dashboard + PDF reports + JIRA integration + SSO + priority support |
-| **Gumroad Binary** | $49 one-time | All-platform binaries + 1yr updates (Pro features still need license) |
+**Everything is open source and free.** All features — STRIDE-LM, MAESTRO, MITRE ATT&CK, Semgrep integration, D3.js diagrams, 3D visualization, GitHub Action — ship in the single binary. No license keys, no feature gates.
+
+**Monetization: Gumroad Rule Packs ($29/mo)**
+
+| Product | Price | What You Get |
+|---------|-------|--------------|
+| **TITO CLI** | Free (open source) | Full-featured threat modeling binary — all features included |
+| **Premium Rule Pack** | $29/mo | Curated STRIDE-LM + MAESTRO rules, updated monthly, covering emerging threats |
 | **Playbook** | $29 one-time | STRIDE-LM + MAESTRO methodology guide |
 | **Template Kit** | $19 one-time | D3.js diagram templates for custom visualizations |
-| **Bundle** | $79 one-time | All three Gumroad products |
 
 ## 4-Week Launch Calendar
 
@@ -68,10 +69,9 @@
   - Maker comment explaining the story
   - Schedule for Tuesday 12:01am PT
 - [ ] **Gumroad listings**:
-  - Pro Binary Pack ($49) with screenshots
+  - Premium Rule Pack ($29/mo) — curated STRIDE-LM + MAESTRO rules
   - STRIDE-LM + MAESTRO Playbook ($29) — write the content
   - D3.js Template Kit ($19) — package the templates
-  - Bundle ($79)
 - [ ] **YouTube demo** (2-3 min):
   - Terminal: `tito scan --repo https://github.com/langchain-ai/langchain --maestro --dataflow`
   - Show the D3.js diagram output
@@ -98,7 +98,7 @@
 - **Content**: 1 blog post/month on specific threat modeling topics
 - **Moltbook**: Weekly engagement in m/security
 - **GitHub**: Respond to issues within 24h, accept PRs, release monthly
-- **Metrics to track**: GitHub stars, Gumroad sales, Pro signups, GitHub Action installs, newsletter subscribers
+- **Metrics to track**: GitHub stars, Gumroad sales, GitHub Action installs, newsletter subscribers
 
 ## Show HN Post (Ready to Go)
 
@@ -127,65 +127,45 @@ growing attack surface in our industry.
 MAESTRO specifically models: prompt injection, RAG poisoning, MCP tool attacks,
 agent-to-agent trust exploitation, sandbox escapes, and governance gaps.
 
-Free tier: STRIDE-LM + markdown reports
-Pro ($49/mo per org): MAESTRO + MITRE + D3.js diagrams + GitHub Action
+100% open source. Every feature included. No license keys.
+Premium rule packs on Gumroad ($29/mo) for curated emerging threat rules.
 
 https://github.com/Leathal1/TITO
 ```
 
 ## Pricing Page Copy (for tito.security)
 
-### Free
-**For individual security researchers and small teams**
-- STRIDE-LM threat classification
-- Markdown reports
-- Basic Semgrep integration
-- CLI with unlimited local scans
+### TITO — Free & Open Source
+**Every feature. No gates. No license keys.**
+- STRIDE-LM + MAESTRO threat classification
+- MITRE ATT&CK technique enrichment
+- Semgrep SAST integration
+- Interactive D3.js data flow diagrams + 3D visualization
+- GitHub Action for CI/CD
+- CLI with unlimited scans
 - Community support (GitHub Issues)
 
 [Download Free →]
 
-### Pro — $49/mo per org
-**For AppSec teams that need the full picture**
-- Everything in Free, plus:
-- **MAESTRO** agentic AI analysis (7-layer framework)
-- **MITRE ATT&CK** technique enrichment
-- **Interactive D3.js** data flow diagrams
-- **3D visualization** with Three.js
-- Full Semgrep rule mapping
-- **GitHub Action** for CI/CD
-- Email support
-- Unlimited team members
+### Premium Rule Pack — $29/mo
+**Curated threat rules, updated monthly**
+- Emerging threat patterns for STRIDE-LM + MAESTRO
+- Industry-specific rule sets
+- Priority Semgrep rulesets
+- Monthly updates covering new CVEs and attack techniques
 
-[Start Pro Trial →]
-
-### Enterprise — $499/mo
-**For security programs at scale**
-- Everything in Pro, plus:
-- Team dashboard with historical trending
-- PDF report generation (compliance-ready)
-- Custom STRIDE-LM/MAESTRO rule libraries
-- JIRA/Linear integration
-- Slack/Teams notifications
-- SSO + audit logs
-- Priority support (4hr SLA)
-- Quarterly security review call
-
-[Contact Sales →]
+[Subscribe on Gumroad →]
 
 ### FAQ
 
-**Is the CLI free forever?**
-Yes. STRIDE-LM + markdown reports will always be free and open source.
+**Is TITO really free?**
+Yes. Every feature ships in the open source binary. No license keys, no feature gates, forever.
 
-**What's per-org pricing?**
-One license covers your entire organization. No per-seat charges. 5 devs or 500 — same price.
-
-**Can I try Pro features?**
-Yes. `TITO_LICENSE_KEY=trial` gives you 14 days of Pro access.
+**What do rule packs add?**
+The CLI includes comprehensive built-in rules. Premium rule packs add curated, frequently-updated rules targeting emerging threats and industry-specific patterns.
 
 **Do you sell to competitors?**
-TITO is open source (MIT). You can build on it. The Pro features are what we charge for.
+TITO is open source (MIT). You can build on it freely.
 
 **What about Semgrep's license?**
 TITO calls Semgrep as a subprocess — you bring your own Semgrep installation. We don't bundle or redistribute Semgrep's rules.

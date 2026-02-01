@@ -173,7 +173,7 @@ func (ng *NarrativeGenerator) getMostSevereVulnerability(findings []dataflow.Fin
 			return strings.ToLower(mostSevere.Title)
 		}
 		if mostSevere.STRIDE != "" {
-			return fmt.Sprintf("%s", strings.ToLower(mostSevere.STRIDE))
+			return strings.ToLower(mostSevere.STRIDE)
 		}
 		return mostSevere.Severity + " severity"
 	}

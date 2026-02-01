@@ -16,33 +16,16 @@ Single Go binary. Point it at a repo. Get a visual threat model with SAST findin
 
 ## Revenue Streams
 
-### Tier 1: Open Source (Free)
-- CLI tool with STRIDE-LM
-- Basic markdown reports
-- Community Semgrep rules
+### Open Source (Free — all features)
+- Full CLI with STRIDE-LM, MAESTRO, MITRE ATT&CK, Semgrep, D3.js diagrams, 3D viz
+- GitHub Action (unlimited scans)
+- No license keys, no feature gates
 - GitHub repo (stars → credibility → leads)
 
-### Tier 2: Pro ($29/month or $199/year)
-- MAESTRO agentic AI analysis
-- Interactive data flow diagrams (HTML)
-- MITRE ATT&CK enrichment
-- Priority Semgrep rulesets
-- GitHub Action (unlimited scans)
-- Email support
-
-### Tier 3: Enterprise ($99/month or $799/year)
-- Everything in Pro
-- Team dashboard (historical trending)
-- Custom STRIDE-LM/MAESTRO rules
-- PDF report generation
-- JIRA/Linear integration
-- SSO + audit logs
-- Slack/Teams notifications
-
-### One-Time Products (Gumroad)
-- **TITO Pro Binary Pack** — $49 (all platforms, forever updates for 1 year)
-- **STRIDE-LM + MAESTRO Playbook** — $29 (methodology guide + templates)
-- **Security Data Flow Template Kit** — $19 (D3.js templates for custom diagrams)
+### Gumroad Products
+- **Premium Rule Pack** — $29/mo (curated STRIDE-LM + MAESTRO rules, updated monthly)
+- **STRIDE-LM + MAESTRO Playbook** — $29 one-time (methodology guide + templates)
+- **Security Data Flow Template Kit** — $19 one-time (D3.js templates for custom diagrams)
 
 ## Go-To-Market
 1. **Week 1:** Ship v2.1.0 with all features. Cross-compile binaries.
@@ -59,7 +42,7 @@ Single Go binary. Point it at a repo. Get a visual threat model with SAST findin
 ## Competitive Landscape
 | Tool | Threat Model | SAST | AI/Agent | Visual | CLI | Price |
 |------|-------------|------|----------|--------|-----|-------|
-| **TITO** | STRIDE-LM + MAESTRO | Semgrep | ✅ MAESTRO | ✅ D3.js | ✅ Go | $29/mo |
+| **TITO** | STRIDE-LM + MAESTRO | Semgrep | ✅ MAESTRO | ✅ D3.js | ✅ Go | Free (OSS) |
 | Microsoft TMT | STRIDE | ❌ | ❌ | Basic | ❌ | Free |
 | OWASP Threat Dragon | STRIDE | ❌ | ❌ | Basic | ❌ | Free |
 | IriusRisk | STRIDE | Limited | ❌ | Basic | ❌ | $$$$ |
@@ -70,7 +53,7 @@ Nobody combines all five. That's the moat.
 ## Revenue Projections (Conservative)
 - Month 1-3: $0-500 (early adopters, Gumroad one-time sales)
 - Month 4-6: $500-2K (GitHub Action subscribers, word of mouth)
-- Month 7-12: $2K-5K/month (enterprise trials, conference exposure)
+- Month 7-12: $2K-5K/month (rule pack subscribers, conference exposure)
 - Year 2: $5K-10K/month (established tool, integrations, content marketing)
 
 ## Key Metrics

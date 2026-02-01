@@ -33,6 +33,9 @@ import (
 )
 
 var (
+	// version is set by ldflags at build time (-X main.version=...)
+	version = "dev"
+
 	cfgFile string
 	cfg     *config.Config
 )
@@ -79,6 +82,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(complianceCmd)
 	rootCmd.AddCommand(apiCmd)
+	rootCmd.AddCommand(semgrepCmd)
 }
 
 var initConfigCmd = &cobra.Command{
@@ -279,7 +283,7 @@ func runReport(cmd *cobra.Command, args []string) error {
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show TITO system status",
-	Long:  "Display the current status of TITO including configuration and license tier",
+	Long:  "Display the current status of TITO including configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("🛡️  TITO System Status")
 		fmt.Println(strings.Repeat("=", 50))
@@ -316,7 +320,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("TITO - Automated Threat Modeling for Code Repositories")
-		fmt.Println("Version: 2.1.0")
+		fmt.Printf("Version: %s\n", version)
 		fmt.Println("STRIDE-LM + MAESTRO + Attack Paths + 3D Visualization")
 	},
 }
@@ -373,7 +377,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Branch: %s\n", branch)
 	fmt.Println()
 
-	s := scanner.NewScanner("./work")
+	workDir, err := os.MkdirTemp("", "tito-scan-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	s := scanner.NewScanner(workDir)
 	ctx := context.Background()
 
 	repo, err := s.ScanRepository(ctx, repoURL, branch)
@@ -679,53 +689,170 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Show results
-	fmt.Println("📊 Results Summary:")
-	fmt.Println(strings.Repeat("-", 50))
+	// ── Threat Model Summary ─────────────────────────────────────
+	fmt.Println("📊 Threat Model Summary:")
+	fmt.Println(strings.Repeat("─", 60))
 
+	// ── 1. ASSETS ──
+	fmt.Println()
+	fmt.Println("📦 ASSETS")
+	// Count by type
+	assetTypeCounts := make(map[string]int)
+	exposedCount := 0
+	sensitiveCount := 0
+	for _, a := range repo.Assets {
+		assetTypeCounts[string(a.Type)]++
+		if a.Exposed {
+			exposedCount++
+		}
+		if a.Sensitive {
+			sensitiveCount++
+		}
+	}
+	fmt.Printf("  Total: %d assets | %d exposed | %d sensitive\n",
+		len(repo.Assets), exposedCount, sensitiveCount)
+	// Show top asset types
+	type assetTypeCount struct {
+		Type  string
+		Count int
+	}
+	var sortedAssetTypes []assetTypeCount
+	for t, c := range assetTypeCounts {
+		sortedAssetTypes = append(sortedAssetTypes, assetTypeCount{t, c})
+	}
+	// Sort by count descending
+	for i := 0; i < len(sortedAssetTypes); i++ {
+		for j := i + 1; j < len(sortedAssetTypes); j++ {
+			if sortedAssetTypes[j].Count > sortedAssetTypes[i].Count {
+				sortedAssetTypes[i], sortedAssetTypes[j] = sortedAssetTypes[j], sortedAssetTypes[i]
+			}
+		}
+	}
+	for i, at := range sortedAssetTypes {
+		if i >= 5 {
+			break
+		}
+		fmt.Printf("    %-20s %d\n", at.Type, at.Count)
+	}
+	fmt.Printf("  Data flows: %d\n", len(repo.DataFlows))
+
+	// ── 2. THREATS ──
+	fmt.Println()
+	fmt.Println("⚠️  THREATS")
 	criticalCount := 0
 	highCount := 0
+	mediumCount := 0
 	for _, mt := range mappedThreats {
-		if mt.Threat.Severity == models.SeverityCritical {
+		switch mt.Threat.Severity {
+		case models.SeverityCritical:
 			criticalCount++
-		} else if mt.Threat.Severity == models.SeverityHigh {
+		case models.SeverityHigh:
 			highCount++
+		case models.SeverityMedium:
+			mediumCount++
 		}
 	}
-
-	fmt.Printf("  🔴 Critical threats: %d\n", criticalCount)
-	fmt.Printf("  🟠 High threats: %d\n", highCount)
-	fmt.Printf("  📦 Total affected assets: %d\n", countAffectedAssets(mappedThreats))
-	fmt.Printf("  🔄 Risky data flows: %d\n", countRiskyFlows(mappedThreats))
+	fmt.Printf("  🔴 Critical: %d  🟠 High: %d  🟡 Medium: %d\n", criticalCount, highCount, mediumCount)
 	if enableSemgrep {
-		fmt.Printf("  🔬 Semgrep findings: %d\n", len(semgrepFindings))
+		fmt.Printf("  🔬 Semgrep SAST findings: %d\n", len(semgrepFindings))
 	}
-	fmt.Println()
 
-	// Show threat distribution by category
+	// Threat distribution by STRIDE category
 	if len(processedThreats) > 0 {
-		fmt.Println("Threat Distribution:")
 		categoryDistribution := getThreatDistribution(processedThreats)
 		for _, item := range categoryDistribution {
-			fmt.Printf("  %s: %d findings\n", item.CategoryName, item.Count)
+			fmt.Printf("    %-25s %d findings\n", item.CategoryName, item.Count)
 		}
-		fmt.Println()
 	}
 
-	// Show top threats by category (one per STRIDE-LM category)
+	// Top threats
 	if len(mappedThreats) > 0 {
-		fmt.Println("Top Threats by Category:")
+		fmt.Println()
+		fmt.Println("  Top Threats:")
 		topByCategory := getTopThreatsByCategory(mappedThreats)
 		for _, item := range topByCategory {
 			instanceStr := ""
 			if item.Threat.InstanceCount > 1 {
 				instanceStr = fmt.Sprintf(" (%d instances)", item.Threat.InstanceCount)
 			}
-			fmt.Printf("  [%s] %s%s - Risk: %.2f\n",
-				item.CategoryCode, truncate(item.Threat.Title, 60), instanceStr, item.RiskScore)
+			fmt.Printf("    [%s] %s%s — Risk: %.2f\n",
+				item.CategoryCode, truncate(item.Threat.Title, 55), instanceStr, item.RiskScore)
 		}
-		fmt.Println()
 	}
+
+	// ── 3. MITIGATING CONTROLS ──
+	fmt.Println()
+	fmt.Println("🛡️  MITIGATING CONTROLS")
+	mitigationCount := 0
+	mitigationByType := make(map[string]int)
+	for _, mt := range mappedThreats {
+		mitigationCount += len(mt.Mitigations)
+		for _, m := range mt.Mitigations {
+			mitigationByType[string(m.Type)]++
+		}
+	}
+	if mitigationCount > 0 {
+		fmt.Printf("  %d recommendations generated:\n", mitigationCount)
+		mitigationTypeLabels := map[string]string{
+			"patch":         "🔧 Patch/Update",
+			"code_change":   "📝 Code Change",
+			"configuration": "⚙️  Configuration",
+			"architecture":  "🏗️  Architecture",
+			"monitoring":    "👁️  Monitoring",
+		}
+		for typ, count := range mitigationByType {
+			label := mitigationTypeLabels[typ]
+			if label == "" {
+				label = typ
+			}
+			fmt.Printf("    %-25s %d\n", label, count)
+		}
+		// Show top unique priority mitigations (deduplicated)
+		fmt.Println()
+		fmt.Println("  Priority Actions:")
+		seen := make(map[string]bool)
+		shown := 0
+		// Critical/high first
+		for _, mt := range mappedThreats {
+			if shown >= 5 {
+				break
+			}
+			for _, m := range mt.Mitigations {
+				if shown >= 5 {
+					break
+				}
+				if (m.Priority == "critical" || m.Priority == "high") && !seen[m.Description] {
+					seen[m.Description] = true
+					fmt.Printf("    → %s\n", truncate(m.Description, 70))
+					shown++
+				}
+			}
+		}
+		// Fill remaining with any priority
+		if shown < 5 {
+			for _, mt := range mappedThreats {
+				if shown >= 5 {
+					break
+				}
+				for _, m := range mt.Mitigations {
+					if shown >= 5 {
+						break
+					}
+					if !seen[m.Description] {
+						seen[m.Description] = true
+						fmt.Printf("    → %s\n", truncate(m.Description, 70))
+						shown++
+					}
+				}
+			}
+		}
+	} else {
+		fmt.Println("  No automated mitigations generated")
+		fmt.Println("  Run with --semgrep for code-level recommendations")
+	}
+
+	fmt.Println()
+	fmt.Println(strings.Repeat("─", 60))
 
 	// Save scan result if requested
 	savePath, _ := cmd.Flags().GetString("save")
@@ -990,9 +1117,14 @@ func runDiff(cmd *cobra.Command, args []string) error {
 // performScan runs a full scan on a repository branch
 func performScan(repoURL, branch, label string) (*scan.ScanResult, error) {
 	ctx := context.Background()
-	
-	// Create scanner with unique work dir for this branch
-	workDir := filepath.Join("./work", label)
+
+	// Create scanner with temp work dir
+	workDir, err := os.MkdirTemp("", "tito-diff-"+label+"-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
 	s := scanner.NewScanner(workDir)
 	
 	// Scan repository
@@ -1122,8 +1254,14 @@ func runAttackPaths(cmd *cobra.Command, args []string) error {
 	// Step 1: Scan repository
 	fmt.Println("🔍 Scanning repository...")
 	ctx := context.Background()
-	
-	s := scanner.NewScanner("./work")
+
+	apWorkDir, err := os.MkdirTemp("", "tito-attackpath-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(apWorkDir)
+
+	s := scanner.NewScanner(apWorkDir)
 	repo, err := s.ScanRepository(ctx, repoURL, branch)
 	if err != nil {
 		return fmt.Errorf("repository scan failed: %w", err)
@@ -1565,28 +1703,6 @@ func getConfigPath() string {
 	return "None (using defaults)"
 }
 
-func countAffectedAssets(threats []mapper.MappedThreat) int {
-	assetMap := make(map[string]bool)
-	for _, threat := range threats {
-		for _, asset := range threat.Assets {
-			assetMap[asset.ID] = true
-		}
-	}
-	return len(assetMap)
-}
-
-func countRiskyFlows(threats []mapper.MappedThreat) int {
-	count := 0
-	for _, threat := range threats {
-		for _, flow := range threat.DataFlows {
-			if flow.Sensitive {
-				count++
-			}
-		}
-	}
-	return count
-}
-
 // CategoryDistributionItem represents threat count by category
 type CategoryDistributionItem struct {
 	CategoryCode string
@@ -1739,9 +1855,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 	addr := fmt.Sprintf(":%d", port)
 	url := fmt.Sprintf("http://localhost:%d/%s", port, base)
 
-	// Serve the directory
-	fs := http.FileServer(http.Dir(dir))
-	http.Handle("/", fs)
+	// Serve the directory (use a local mux, not DefaultServeMux)
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(dir)))
 
 	fmt.Println("🛡️  TITO Report Server")
 	fmt.Println(strings.Repeat("=", 50))
@@ -1757,7 +1873,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		openBrowser(url)
 	}()
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		return fmt.Errorf("server failed: %w", err)
 	}
 
@@ -1823,4 +1939,79 @@ func countTrustBoundariesCrossed(steps []attackpath.AttackStep, graph *attackpat
 	}
 
 	return count
+}
+
+// ── Semgrep management subcommands ──────────────────────────────────────────
+
+var semgrepCmd = &cobra.Command{
+	Use:   "semgrep",
+	Short: "Manage the Semgrep SAST dependency",
+	Long:  "Detect, install, and uninstall the Semgrep static analysis tool used by TITO's --semgrep flag.",
+}
+
+var semgrepStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show Semgrep installation status",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+		info := semgrep.Detect(ctx)
+		if !info.Installed {
+			fmt.Println("✗ Semgrep is not installed")
+			fmt.Println("  Run: tito semgrep install")
+			return nil
+		}
+		fmt.Printf("✓ Semgrep %s\n", info.Version)
+		fmt.Printf("  Path:   %s\n", info.Path)
+		fmt.Printf("  Method: %s\n", info.Method)
+		return nil
+	},
+}
+
+var semgrepInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install Semgrep silently",
+	Long:  "Install Semgrep via pip, pipx, or Homebrew. All output is suppressed.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+		existing := semgrep.Detect(ctx)
+		if existing.Installed {
+			fmt.Printf("✓ Semgrep %s already installed (%s)\n", existing.Version, existing.Path)
+			return nil
+		}
+		fmt.Print("Installing Semgrep... ")
+		info, err := semgrep.EnsureInstalled(ctx)
+		if err != nil {
+			fmt.Println("✗")
+			return err
+		}
+		fmt.Printf("✓ %s (%s)\n", info.Version, info.Method)
+		return nil
+	},
+}
+
+var semgrepUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Uninstall Semgrep",
+	Long:  "Remove Semgrep using the same method it was installed with (pip, pipx, brew, or binary).",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+		info := semgrep.Detect(ctx)
+		if !info.Installed {
+			fmt.Println("✓ Semgrep is not installed — nothing to do")
+			return nil
+		}
+		fmt.Printf("Uninstalling Semgrep %s (installed via %s)... ", info.Version, info.Method)
+		if err := semgrep.Uninstall(ctx); err != nil {
+			fmt.Println("✗")
+			return err
+		}
+		fmt.Println("✓")
+		return nil
+	},
+}
+
+func init() {
+	semgrepCmd.AddCommand(semgrepStatusCmd)
+	semgrepCmd.AddCommand(semgrepInstallCmd)
+	semgrepCmd.AddCommand(semgrepUninstallCmd)
 }

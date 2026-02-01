@@ -1,296 +1,119 @@
 # TITO Installation Guide
 
-## Quick Start
+## Quick Install
 
-### Prerequisites
+### Option 1: Go Install (recommended)
 
-- Python 3.8 or higher
-- pip (Python package manager)
-- Git
-
-### Installation
-
-1. **Clone the repository**
+Requires Go 1.21+:
 
 ```bash
-git clone https://github.com/yourusername/TITO.git
+go install github.com/Leathal1/TITO/cmd/tito@latest
+```
+
+### Option 2: Download Binary
+
+Download a prebuilt binary from [GitHub Releases](https://github.com/Leathal1/TITO/releases):
+
+```bash
+# Example for Linux amd64
+curl -fsSL https://github.com/Leathal1/TITO/releases/latest/download/tito-linux-amd64 -o tito
+chmod +x tito
+sudo mv tito /usr/local/bin/
+```
+
+Available binaries:
+- `tito-darwin-amd64` (macOS Intel)
+- `tito-darwin-arm64` (macOS Apple Silicon)
+- `tito-linux-amd64`
+- `tito-linux-arm64`
+- `tito-windows-amd64.exe`
+
+### Option 3: Build from Source
+
+```bash
+git clone https://github.com/Leathal1/TITO.git
 cd TITO
+make build
 ```
 
-2. **Create a virtual environment** (recommended)
+The binary will be in the project root. Move it to your PATH:
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+sudo mv tito /usr/local/bin/
 ```
 
-3. **Install TITO**
-
-```bash
-pip install -e .
-```
-
-This installs TITO in editable mode with all dependencies.
-
-4. **Verify installation**
+## Verify Installation
 
 ```bash
 tito --help
+tito version
 ```
 
-You should see the TITO CLI help message.
+## Optional: Semgrep
+
+TITO integrates with [Semgrep](https://semgrep.dev/) for static analysis. Semgrep is auto-installed when needed, or you can install it manually:
+
+```bash
+tito semgrep install
+```
+
+Or install directly via pip/brew:
+
+```bash
+pip install semgrep
+# or
+brew install semgrep
+```
 
 ## Configuration
 
-1. **Create configuration file**
-
 ```bash
+# Initialize a config file in the current directory
 tito init-config
-```
 
-This creates a `config.yaml` file in the current directory with default settings.
-
-2. **Edit configuration**
-
-```bash
-# Copy example config
-cp config/config.example.yaml config.yaml
-
-# Edit with your preferred editor
-nano config.yaml  # or vim, code, etc.
-```
-
-3. **Set environment variables** (optional)
-
-```bash
-# NVD API key (optional but recommended for higher rate limits)
+# Set NVD API key for higher rate limits (optional)
 export NVD_API_KEY="your-api-key-here"
-
-# Database connection (if using PostgreSQL)
-export DATABASE_URL="postgresql://user:pass@localhost/tito"
-
-# Log level
-export LOG_LEVEL="INFO"
 ```
 
 Get an NVD API key from: https://nvd.nist.gov/developers/request-an-api-key
 
 ## Usage
 
-### Collect Threat Intelligence
-
 ```bash
-# Run all collectors
-tito collect --all
+# Scan a repository
+tito scan --repo .
 
-# Run specific collectors
-tito collect --nvd
-tito collect --osint
-tito collect --nvd --osint
-```
+# Full scan with all features
+tito scan --repo . --maestro --semgrep --mitre --dataflow --output threat-model.html
 
-### Generate Reports
-
-```bash
-# Generate markdown report
-tito report
-
-# Generate JSON report
-tito report -f json -o report.json
-
-# Generate from saved threats
-tito collect --all --output threats.json
-tito report -i threats.json
-```
-
-### Check System Status
-
-```bash
+# Check system status
 tito status
 ```
 
-### Start API Server
+## GitHub Action
 
-```bash
-tito serve --host 0.0.0.0 --port 8080
+Add to your workflow:
+
+```yaml
+- uses: Leathal1/TITO@v2
+  with:
+    maestro: true
+    semgrep: true
+    mitre: true
 ```
 
-## Development Installation
-
-For development, install with dev dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
-This includes:
-- pytest (testing)
-- black (code formatting)
-- mypy (type checking)
-
-### Running Tests
-
-```bash
-pytest
-```
-
-### Code Formatting
-
-```bash
-black tito/
-```
-
-### Type Checking
-
-```bash
-mypy tito/
-```
-
-## Optional Dependencies
-
-### API Server
-
-To use the API server features:
-
-```bash
-pip install ".[api]"
-```
-
-### PostgreSQL Support
-
-For PostgreSQL database backend:
-
-```bash
-pip install ".[postgres]"
-```
-
-## Running the Demo
-
-Try the demonstration script to see TITO in action:
-
-```bash
-python examples/demo.py
-```
-
-This demonstrates:
-- STRIDE-LM classification
-- Threat collection and processing
-- Intelligence lifecycle
-
-## Troubleshooting
-
-### Import Errors
-
-If you get import errors, ensure TITO is installed:
-
-```bash
-pip install -e .
-```
-
-### Permission Errors
-
-If you get permission errors on Linux/Mac:
-
-```bash
-chmod +x examples/demo.py
-```
-
-### Database Errors
-
-If using SQLite (default), ensure the directory is writable:
-
-```bash
-mkdir -p data
-```
-
-### Rate Limiting
-
-If you're hitting NVD rate limits:
-
-1. Get an API key: https://nvd.nist.gov/developers/request-an-api-key
-2. Set it in config.yaml or environment variable
-
-### Missing Dependencies
-
-Install all dependencies explicitly:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Docker Installation (Future)
-
-Docker support is planned for future releases:
-
-```bash
-# Build image
-docker build -t tito:latest .
-
-# Run container
-docker run -p 8080:8080 tito:latest
-```
-
-## Production Deployment
-
-For production deployments:
-
-1. **Use PostgreSQL** instead of SQLite
-2. **Set strong API keys** for authentication
-3. **Enable HTTPS** for API server
-4. **Configure logging** to external systems
-5. **Set up monitoring** and alerting
-6. **Use systemd/supervisor** for process management
-7. **Configure rate limiting** appropriately
-
-Example systemd service file:
-
-```ini
-[Unit]
-Description=TITO Threat Intelligence Platform
-After=network.target
-
-[Service]
-Type=simple
-User=tito
-WorkingDirectory=/opt/tito
-Environment="TITO_CONFIG=/etc/tito/config.yaml"
-ExecStart=/opt/tito/venv/bin/tito serve
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
+See [action.yml](action.yml) for all options.
 
 ## Upgrading
 
-To upgrade TITO:
-
 ```bash
-git pull origin main
-pip install -e . --upgrade
+go install github.com/Leathal1/TITO/cmd/tito@latest
 ```
 
-## Uninstallation
-
-To remove TITO:
-
-```bash
-pip uninstall tito
-```
+Or download the latest binary from [Releases](https://github.com/Leathal1/TITO/releases).
 
 ## Getting Help
 
-- Documentation: See README.md and ARCHITECTURE.md
-- Issues: Report at https://github.com/yourusername/TITO/issues
+- Documentation: See [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md)
+- Issues: https://github.com/Leathal1/TITO/issues
 - CLI help: `tito --help`
-
----
-
-**Next Steps After Installation:**
-
-1. Run `tito status` to verify configuration
-2. Run `tito collect --all` to collect initial threats
-3. Run `tito report` to generate your first intelligence report
-4. Explore `examples/demo.py` to understand the system
-
-*Welcome to TITO - Let's transform chaos into clarity.*

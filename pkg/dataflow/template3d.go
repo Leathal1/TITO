@@ -685,8 +685,80 @@ const htmlTemplate3D = `<!DOCTYPE html>
         }
 
         function addTrustBoundaries(boundaries) {
-            // This would require more complex geometry - simplified for now
-            // In a full implementation, would create convex hulls around grouped nodes
+            const scene = Graph.scene();
+            // Wait for the graph layout to stabilize before positioning boundaries
+            setTimeout(() => {
+                boundaries.forEach(boundary => {
+                    const memberNodes = graphData.nodes.filter(n => boundary.nodes.includes(n.id));
+                    if (memberNodes.length === 0) return;
+
+                    // Compute bounding box of member nodes
+                    let minX = Infinity, maxX = -Infinity;
+                    let minY = Infinity, maxY = -Infinity;
+                    let minZ = Infinity, maxZ = -Infinity;
+
+                    memberNodes.forEach(n => {
+                        const obj = Graph.nodeThreeObject(n);
+                        if (obj) {
+                            const p = obj.position;
+                            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                            minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+                        }
+                    });
+
+                    if (!isFinite(minX)) return;
+
+                    const pad = 30;
+                    const cx = (minX + maxX) / 2;
+                    const cy = (minY + maxY) / 2;
+                    const cz = (minZ + maxZ) / 2;
+                    const sx = (maxX - minX) + pad * 2;
+                    const sy = (maxY - minY) + pad * 2;
+                    const sz = (maxZ - minZ) + pad * 2;
+
+                    // Semi-transparent bounding box
+                    const color = new THREE.Color(boundary.color || '#888888');
+                    const geometry = new THREE.BoxGeometry(
+                        Math.max(sx, 20), Math.max(sy, 20), Math.max(sz, 20)
+                    );
+                    const material = new THREE.MeshPhongMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: 0.06,
+                        side: THREE.DoubleSide
+                    });
+                    const box = new THREE.Mesh(geometry, material);
+                    box.position.set(cx, cy, cz);
+                    scene.add(box);
+
+                    // Wireframe edges
+                    const edgeGeo = new THREE.EdgesGeometry(geometry);
+                    const edgeMat = new THREE.LineBasicMaterial({
+                        color: color, transparent: true, opacity: 0.35
+                    });
+                    const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
+                    wireframe.position.set(cx, cy, cz);
+                    scene.add(wireframe);
+
+                    // Label using sprite
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 512; canvas.height = 64;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = boundary.color || '#888888';
+                    ctx.font = 'bold 32px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(boundary.name, 256, 40);
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const spriteMat = new THREE.SpriteMaterial({
+                        map: texture, transparent: true, opacity: 0.7
+                    });
+                    const sprite = new THREE.Sprite(spriteMat);
+                    sprite.position.set(cx, maxY + pad + 10, cz);
+                    sprite.scale.set(60, 8, 1);
+                    scene.add(sprite);
+                });
+            }, 3000); // Wait for layout
         }
 
         function showNodeInfo(node) {

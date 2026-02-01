@@ -433,13 +433,4 @@ func (n *NVDCollector) getMockCVEs() []CVEData {
 	}
 }
 
-// fetchFromAPI would be the real implementation fetching from NVD API
-func (n *NVDCollector) fetchFromAPI(ctx context.Context) ([]CVEData, error) {
-	// Real implementation would:
-	// 1. Construct query with date range
-	// 2. Make HTTP request with API key
-	// 3. Handle pagination
-	// 4. Parse JSON response
-	// 5. Implement rate limiting
-	return nil, fmt.Errorf("not implemented")
-}
+// TODO: fetchFromAPI — real NVD API integration (rate limiting, pagination, API key auth)

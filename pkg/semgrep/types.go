@@ -1,5 +1,7 @@
 package semgrep
 
+import "encoding/json"
+
 // SemgrepOutput represents the JSON output from Semgrep
 type SemgrepOutput struct {
 	Results []Finding `json:"results"`
@@ -48,12 +50,36 @@ type Metadata struct {
 	VulnerabilityClass []string `json:"vulnerability_class"`
 }
 
-// Error represents a Semgrep error
+// Error represents a Semgrep error.
+// The "type" field is polymorphic in Semgrep's JSON output —
+// it can be a string ("Other syntax error") or an array (["PartialParsing", ...]).
+// We use json.RawMessage and extract the string representation.
 type Error struct {
-	Message string `json:"message"`
-	Level   string `json:"level"`
-	Type    string `json:"type"`
-	Path    string `json:"path,omitempty"`
+	Message string          `json:"message"`
+	Level   string          `json:"level"`
+	RawType json.RawMessage `json:"type"`
+	Path    string          `json:"path,omitempty"`
+}
+
+// Type returns the error type as a string, handling Semgrep's polymorphic output.
+func (e Error) Type() string {
+	if len(e.RawType) == 0 {
+		return ""
+	}
+	// Try string first
+	var s string
+	if err := json.Unmarshal(e.RawType, &s); err == nil {
+		return s
+	}
+	// Try array — take the first element as the type name
+	var arr []json.RawMessage
+	if err := json.Unmarshal(e.RawType, &arr); err == nil && len(arr) > 0 {
+		var first string
+		if err := json.Unmarshal(arr[0], &first); err == nil {
+			return first
+		}
+	}
+	return string(e.RawType)
 }
 
 // SeverityLevel represents severity levels

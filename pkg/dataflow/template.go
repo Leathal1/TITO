@@ -1029,16 +1029,69 @@ const htmlTemplate = `<!DOCTYPE html>
             .force("x", d3.forceX(width / 2).strength(0.05))
             .force("y", d3.forceY(height / 2).strength(0.05));
 
-        // Draw trust boundaries (if data has them)
+        // Draw trust boundaries using convex hulls around member nodes
         const boundariesGroup = g.append("g").attr("class", "boundaries");
+        const boundaryHulls = [];
         if (data.trustBoundaries) {
             data.trustBoundaries.forEach(boundary => {
-                // Simplified boundary rendering - would need proper hull calculation
-                boundariesGroup.append("circle")
-                    .attr("class", "trust-boundary " + boundary.type)
-                    .attr("cx", width / 2)
-                    .attr("cy", height / 2)
-                    .attr("r", 200 + Math.random() * 100);
+                const path = boundariesGroup.append("path")
+                    .attr("class", "trust-boundary " + boundary.zone)
+                    .attr("fill", boundary.color || "#888")
+                    .attr("fill-opacity", 0.08)
+                    .attr("stroke", boundary.color || "#888")
+                    .attr("stroke-opacity", 0.4)
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "8,4");
+
+                const label = boundariesGroup.append("text")
+                    .attr("class", "boundary-label")
+                    .attr("fill", boundary.color || "#888")
+                    .attr("fill-opacity", 0.7)
+                    .attr("font-size", "12px")
+                    .attr("font-weight", "bold")
+                    .text(boundary.name);
+
+                boundaryHulls.push({ boundary, path, label, nodeIds: new Set(boundary.nodes) });
+            });
+        }
+
+        function updateBoundaryHulls() {
+            boundaryHulls.forEach(({ boundary, path, label, nodeIds }) => {
+                const points = [];
+                data.nodes.forEach(n => {
+                    if (nodeIds.has(n.id) && n.x != null && n.y != null) {
+                        points.push([n.x, n.y]);
+                    }
+                });
+                if (points.length < 2) {
+                    path.attr("d", "");
+                    return;
+                }
+                // Expand hull with padding
+                const hull = d3.polygonHull(points);
+                if (!hull) {
+                    // Collinear points — draw a rounded rect around them
+                    const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+                    const pad = 40;
+                    const x1 = Math.min(...xs) - pad, y1 = Math.min(...ys) - pad;
+                    const x2 = Math.max(...xs) + pad, y2 = Math.max(...ys) + pad;
+                    path.attr("d", "M" + x1 + "," + y1 + "L" + x2 + "," + y1 + "L" + x2 + "," + y2 + "L" + x1 + "," + y2 + "Z");
+                    label.attr("x", x1 + 5).attr("y", y1 - 5);
+                    return;
+                }
+                // Expand hull outward by padding
+                const pad = 40;
+                const cx = d3.mean(hull, p => p[0]);
+                const cy = d3.mean(hull, p => p[1]);
+                const expanded = hull.map(p => {
+                    const dx = p[0] - cx, dy = p[1] - cy;
+                    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                    return [p[0] + dx/dist * pad, p[1] + dy/dist * pad];
+                });
+                path.attr("d", "M" + expanded.map(p => p.join(",")).join("L") + "Z");
+                // Position label at top of hull
+                const topPt = expanded.reduce((a, b) => a[1] < b[1] ? a : b);
+                label.attr("x", topPt[0]).attr("y", topPt[1] - 8);
             });
         }
 
@@ -1210,6 +1263,9 @@ const htmlTemplate = `<!DOCTYPE html>
             });
 
             node.attr("transform", d => ` + "`translate(${d.x},${d.y})`" + `);
+
+            // Update trust boundary hulls to follow nodes
+            updateBoundaryHulls();
         });
 
         // Wait for simulation to stabilize, then create particles

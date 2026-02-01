@@ -329,7 +329,8 @@ tito attack-paths   Generate attack path analysis and kill chain visualization
 tito diff           Compare threat models between two scans (PR diff)
 tito report         Generate threat report from scan results
 tito serve          Serve a TITO report or diagram in the browser
-tito status         Show TITO system status and license tier
+tito status         Show TITO system status
+tito semgrep        Manage Semgrep dependency (status/install/uninstall)
 tito dashboard      Start the web dashboard
 tito api            Start the TITO API server
 tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)

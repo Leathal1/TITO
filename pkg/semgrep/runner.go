@@ -1,6 +1,7 @@
 package semgrep
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -43,19 +44,20 @@ func (r *Runner) Scan(ctx context.Context, targetPath string) (*SemgrepOutput, e
 
 	cmd := exec.CommandContext(ctx, r.semgrepPath, args...)
 
-	// Run semgrep
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Semgrep returns non-zero exit code if findings are found
-		// This is expected, so we only error if we can't parse the output
-		if len(output) == 0 {
-			return nil, fmt.Errorf("semgrep scan failed: %w: %s", err, string(output))
-		}
+	// Capture stdout (JSON) and stderr (progress) separately so
+	// progress messages don't contaminate the JSON output.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil && stdout.Len() == 0 {
+		return nil, fmt.Errorf("semgrep scan failed: %w: %s", err, stderr.String())
 	}
 
-	// Parse JSON output
+	// Parse JSON output from stdout only
 	var result SemgrepOutput
-	if err := json.Unmarshal(output, &result); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse semgrep output: %w", err)
 	}
 
@@ -87,28 +89,33 @@ func (r *Runner) ScanWithRules(ctx context.Context, targetPath string, rules []s
 
 	cmd := exec.CommandContext(ctx, r.semgrepPath, args...)
 
-	// Run semgrep
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(output) == 0 {
-			return nil, fmt.Errorf("semgrep scan failed: %w: %s", err, string(output))
-		}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil && stdout.Len() == 0 {
+		return nil, fmt.Errorf("semgrep scan failed: %w: %s", err, stderr.String())
 	}
 
-	// Parse JSON output
+	// Parse JSON output from stdout only
 	var result SemgrepOutput
-	if err := json.Unmarshal(output, &result); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse semgrep output: %w", err)
 	}
 
 	return &result, nil
 }
 
-// checkInstalled verifies that semgrep is installed
+// checkInstalled ensures semgrep is available, auto-installing silently if needed.
 func (r *Runner) checkInstalled(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, r.semgrepPath, "--version")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("semgrep is not installed or not in PATH")
+	info, err := EnsureInstalled(ctx)
+	if err != nil {
+		return err
+	}
+	// Use the detected path for all subsequent commands
+	if info.Path != "" {
+		r.semgrepPath = info.Path
 	}
 	return nil
 }

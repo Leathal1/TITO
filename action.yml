@@ -11,15 +11,15 @@ inputs:
     required: false
     default: '.'
   maestro:
-    description: 'Enable MAESTRO agentic AI analysis (Pro)'
+    description: 'Enable MAESTRO agentic AI analysis'
     required: false
     default: 'false'
   mitre:
-    description: 'Enable MITRE ATT&CK mapping (Pro)'
+    description: 'Enable MITRE ATT&CK mapping'
     required: false
     default: 'false'
   semgrep:
-    description: 'Enable Semgrep SAST integration (Pro)'
+    description: 'Enable Semgrep SAST integration'
     required: false
     default: 'false'
   attack-paths:
@@ -30,10 +30,6 @@ inputs:
     description: 'Output file path'
     required: false
     default: 'threat-model.html'
-  license-key:
-    description: 'TITO license key for Pro/Enterprise features'
-    required: false
-    default: ''
   fail-on:
     description: 'Fail the action on threat severity (critical, high, any, never)'
     required: false
@@ -89,8 +85,6 @@ runs:
     - name: Run TITO
       id: run
       shell: bash
-      env:
-        TITO_LICENSE_KEY: ${{ inputs.license-key }}
       run: |
         set -e
 
