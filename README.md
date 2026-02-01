@@ -5,6 +5,7 @@
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Model](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/stevenleath)
 
 Single binary. Point at a repo. Get **attack path analysis**, **3D threat visualization**, **STRIDE-LM + MAESTRO classification**, and **MITRE ATT&CK mappings** — all in one scan.
 
@@ -335,6 +336,12 @@ tito dashboard      Start the web dashboard
 tito api            Start the TITO API server
 tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)
 ```
+
+## Support
+
+If TITO saves you time, consider buying me a coffee:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/stevenleath)
 
 ## Contributing
 
