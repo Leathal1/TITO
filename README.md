@@ -207,18 +207,16 @@ Key findings included hardcoded credentials, unauthenticated payment APIs, and a
 
 ---
 
-## All Features — Free & Open Source
-
-Everything is included. No tiers. No gates. No license keys.
+## Features
 
 - Repository scanning & asset discovery
-- STRIDE-LM classification
+- STRIDE-LM threat classification
 - MAESTRO agentic AI analysis
-- MITRE ATT&CK mapping
+- MITRE ATT&CK technique mapping
 - PCI DSS v4.0 compliance mapping
 - Application architecture detection
 - Attack path analysis with narratives
-- 2D & 3D visualization
+- 2D & 3D data flow visualization
 - PR threat diffing
 - Semgrep integration
 - Compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST 800-53, HIPAA)

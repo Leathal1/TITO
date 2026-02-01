@@ -89,15 +89,10 @@
 
 ## 💰 Monetization Strategy
 
-### Free & Open Source (Forever)
-The CLI and all current features remain fully open source:
-- STRIDE-LM, MAESTRO, MITRE ATT&CK, PCI DSS
-- Architecture detection & threat adjustments
-- Attack paths, Semgrep analysis, visualizations
-- Single-repo scanning, PR diffing
-- OWASP & additional compliance frameworks
+### Open Source Core
+The CLI is open source. Community adoption drives everything.
 
-### Premium Rule Packs (Gumroad — Available Now)
+### Premium Rule Packs (Gumroad)
 Continuously updated Semgrep rule packs for specialized scanning:
 - **PCI DSS Rule Pack** — $29/mo
 - **HIPAA Rule Pack** — $29/mo
@@ -107,7 +102,7 @@ Continuously updated Semgrep rule packs for specialized scanning:
 
 Updated monthly with new CVE patterns, false positive tuning, and framework-specific rules.
 
-### TITO Pro (Future — When Community is Ready)
+### TITO Pro (Future)
 Advanced features for teams and enterprises:
 - CI/CD drift detection with pipeline gating
 - Auto-remediation with PR-ready patches
