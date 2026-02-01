@@ -1,0 +1,251 @@
+rules:
+  - id: pci-logging-sensitive-data-in-logs
+    patterns:
+      - pattern-either:
+          - pattern: log.info(..., $DATA, ...)
+          - pattern: logger.info(..., $DATA, ...)
+          - pattern: console.log(..., $DATA, ...)
+          - pattern: print(..., $DATA, ...)
+          - pattern: logging.info(..., $DATA, ...)
+          - pattern: Log.d(..., $DATA, ...)
+      - metavariable-regex:
+          metavariable: $DATA
+          regex: (?i)(password|pwd|pass|secret|token|api.?key|cvv|pin|card.?number|pan)
+    message: |
+      Sensitive data in log statement detected.
+      PCI DSS Requirement 3.3.1: Sensitive authentication data must not be stored after authorization.
+      PCI DSS Requirement 10.3.1: Audit logs must not contain sensitive authentication data.
+      Remove passwords, CVVs, PINs, and full card numbers from logs.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      cwe: CWE-532
+      owasp: A09:2021
+      pci_dss: "3.3.1,10.3.1"
+      confidence: HIGH
+      references:
+        - https://www.pcisecuritystandards.org/document_library
+
+  - id: pci-logging-missing-audit-log
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def delete_user($USER):
+                ...
+          - pattern: |
+              function deleteUser($USER) {
+                ...
+              }
+          - pattern: |
+              def modify_account($ACCOUNT):
+                ...
+          - pattern: |
+              function modifyAccount($ACCOUNT) {
+                ...
+              }
+      - pattern-not-inside: |
+          ...
+          audit_log(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          log.audit(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          logger.audit(...)
+          ...
+    message: |
+      Sensitive operation without audit logging detected.
+      PCI DSS Requirement 10.2.1: Audit logs must capture user access and actions.
+      PCI DSS Requirement 10.2.1.2: All administrative actions must be logged.
+      Add audit logging for all account modifications and deletions.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.2.1,10.2.1.2"
+      confidence: MEDIUM
+
+  - id: pci-logging-missing-authentication-log
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def login($USER, $PASS):
+                ...
+                if ...:
+                  return False
+          - pattern: |
+              function login($USER, $PASS) {
+                ...
+                if (...) {
+                  return false;
+                }
+              }
+      - pattern-not-inside: |
+          ...
+          log.warn("Failed login...")
+          ...
+      - pattern-not-inside: |
+          ...
+          logger.warning("Failed login...")
+          ...
+      - pattern-not-inside: |
+          ...
+          audit_log("Authentication failure...")
+          ...
+    message: |
+      Failed authentication attempt without logging detected.
+      PCI DSS Requirement 10.2.1.4: All invalid logical access attempts must be logged.
+      Log all failed authentication attempts for security monitoring.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.2.1.4"
+      confidence: MEDIUM
+
+  - id: pci-logging-insufficient-log-detail
+    patterns:
+      - pattern-either:
+          - pattern: log.info("User logged in")
+          - pattern: logger.info("User logged in")
+          - pattern: console.log("Action performed")
+          - pattern: logging.info("Access granted")
+    message: |
+      Insufficient audit log detail detected.
+      PCI DSS Requirement 10.3.1: Log entries must contain sufficient detail to reconstruct events.
+      PCI DSS Requirement 10.3.2: User identity must be captured.
+      Include user ID, timestamp, action, and affected resource in all audit logs.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.3.1,10.3.2"
+      confidence: LOW
+
+  - id: pci-logging-access-without-log
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $DB.query("SELECT * FROM cardholder_data ...")
+          - pattern: |
+              CardholderData.find(...)
+          - pattern: |
+              get_payment_info(...)
+          - pattern: |
+              access_account_data(...)
+      - pattern-not-inside: |
+          ...
+          audit_log(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          log.info("Access to cardholder data...")
+          ...
+    message: |
+      Access to cardholder data without audit logging.
+      PCI DSS Requirement 10.2.1: All individual user access to cardholder data must be logged.
+      Log all access to cardholder data including user, time, and data accessed.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.2.1"
+      confidence: MEDIUM
+
+  - id: pci-logging-log-tampering-risk
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def delete_logs(...):
+                ...
+          - pattern: |
+              function deleteLogs(...) {
+                ...
+              }
+          - pattern: os.remove($LOGFILE)
+          - pattern: fs.unlinkSync($LOGFILE)
+          - pattern: File.delete($LOGFILE)
+      - metavariable-regex:
+          metavariable: $LOGFILE
+          regex: (?i)(log|audit)
+    message: |
+      Log deletion or tampering capability detected.
+      PCI DSS Requirement 10.2.1.3: All access to audit logs must be logged.
+      PCI DSS Requirement 10.4.2: Logs for critical security control systems must be protected.
+      Implement write-once/read-many logging and protect log files from unauthorized modification.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-778
+      pci_dss: "10.2.1.3,10.4.2"
+      confidence: MEDIUM
+
+  - id: pci-logging-missing-change-log
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def update_password($USER, $NEWPASS):
+                ...
+          - pattern: |
+              function updatePassword($USER, $NEWPASS) {
+                ...
+              }
+          - pattern: |
+              def change_credentials(...):
+                ...
+          - pattern: |
+              function changeCredentials(...) {
+                ...
+              }
+      - pattern-not-inside: |
+          ...
+          audit_log("Credential change...")
+          ...
+      - pattern-not-inside: |
+          ...
+          log.info("Password changed...")
+          ...
+    message: |
+      Credential change without audit logging detected.
+      PCI DSS Requirement 10.2.1.5: All changes to identification and authentication credentials must be logged.
+      Log all password changes, credential updates, and authentication modifications.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.2.1.5"
+      confidence: MEDIUM
+
+  - id: pci-logging-centralized-logging-missing
+    patterns:
+      - pattern-either:
+          - pattern: |
+              logging.basicConfig(filename="local.log", ...)
+          - pattern: |
+              logger = logging.getLogger(__name__)
+          - pattern: |
+              const logger = winston.createLogger({
+                transports: [new winston.transports.File(...)]
+              })
+      - pattern-not-inside: |
+          ...
+          SyslogHandler(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          transport: new winston.transports.Syslog(...)
+          ...
+    message: |
+      Local-only logging detected without centralized log collection.
+      PCI DSS Requirement 10.4.1: Critical system component logs should be centralized for review.
+      Implement centralized logging (syslog, SIEM) for security event correlation.
+    severity: INFO
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "10.4.1"
+      confidence: LOW

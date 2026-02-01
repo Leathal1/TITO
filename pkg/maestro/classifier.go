@@ -1,11 +1,8 @@
 package maestro
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/Leathal1/TITO/pkg/license"
 )
 
 // Profile represents a MAESTRO classification profile
@@ -71,21 +68,6 @@ type ClassificationInput struct {
 
 // Classify classifies a system into MAESTRO layers
 func (c *Classifier) Classify(input ClassificationInput) *Profile {
-	// Check license
-	if !license.IsPro() {
-		fmt.Println("⚠️  MAESTRO analysis requires TITO Pro or Enterprise.")
-		fmt.Println("    Get started at https://tito.security/pricing")
-		fmt.Println()
-		
-		// Return a basic profile indicating license limitation
-		return &Profile{
-			PrimaryLayer:      FoundationModels,
-			SecondaryLayers:   []Layer{},
-			ConfidenceScores:  map[Layer]float64{FoundationModels: 0.0},
-			IdentifiedThreats: []string{"MAESTRO classification requires TITO Pro"},
-		}
-	}
-
 	// Calculate confidence scores for each layer
 	scores := c.calculateScores(input)
 

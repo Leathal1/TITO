@@ -190,6 +190,7 @@ type Threat struct {
 	References      []string `json:"references" yaml:"references"`
 	CVEIDs          []string `json:"cve_ids" yaml:"cve_ids"`
 	MitreAttackIDs  []string `json:"mitre_attack_ids" yaml:"mitre_attack_ids"`
+	PCIRequirements []string `json:"pci_requirements,omitempty" yaml:"pci_requirements,omitempty"`
 
 	// Recommendations
 	RecommendedActions []string `json:"recommended_actions" yaml:"recommended_actions"`

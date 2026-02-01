@@ -8,19 +8,22 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Leathal1/TITO/pkg/archetype"
 )
 
 // Repository represents a scanned code repository
 type Repository struct {
-	URL          string    `json:"url"`
-	LocalPath    string    `json:"local_path"`
-	Branch       string    `json:"branch"`
-	Language     string    `json:"language"`
-	Framework    string    `json:"framework"`
-	LastScanned  time.Time `json:"last_scanned"`
-	Assets       []Asset   `json:"assets"`
-	DataFlows    []DataFlow `json:"data_flows"`
-	Dependencies []Dependency `json:"dependencies"`
+	URL          string                `json:"url"`
+	LocalPath    string                `json:"local_path"`
+	Branch       string                `json:"branch"`
+	Language     string                `json:"language"`
+	Framework    string                `json:"framework"`
+	Architecture *archetype.ArchProfile `json:"architecture,omitempty"`
+	LastScanned  time.Time             `json:"last_scanned"`
+	Assets       []Asset               `json:"assets"`
+	DataFlows    []DataFlow            `json:"data_flows"`
+	Dependencies []Dependency          `json:"dependencies"`
 }
 
 // Asset represents a discoverable asset in the codebase
@@ -117,6 +120,11 @@ func (s *Scanner) ScanRepository(ctx context.Context, repoURL, branch string) (*
 	// Detect language and framework
 	if err := s.detectTechnology(repo); err != nil {
 		return nil, fmt.Errorf("failed to detect technology: %w", err)
+	}
+
+	// Detect architecture
+	if err := s.detectArchitecture(repo); err != nil {
+		return nil, fmt.Errorf("failed to detect architecture: %w", err)
 	}
 
 	// Discover assets
@@ -246,6 +254,17 @@ func (s *Scanner) detectFramework(repo *Repository) string {
 	}
 
 	return "unknown"
+}
+
+// detectArchitecture detects the application architecture type
+func (s *Scanner) detectArchitecture(repo *Repository) error {
+	detector := archetype.NewDetector(repo.LocalPath)
+	profile, err := detector.Detect(repo.Language, repo.Framework)
+	if err != nil {
+		return err
+	}
+	repo.Architecture = profile
+	return nil
 }
 
 // discoverAssets discovers assets in the codebase

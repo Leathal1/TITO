@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Leathal1/TITO/pkg/license"
 	"github.com/Leathal1/TITO/pkg/models"
 	"github.com/Leathal1/TITO/pkg/scanner"
 )
@@ -29,30 +28,7 @@ func (g *Generator) GenerateFromRepository(
 	// Build diagram data
 	diagram := g.BuildDiagramData(repo, threats)
 
-	// Check if output format is HTML and we have a license
-	isHTML := strings.HasSuffix(strings.ToLower(outputPath), ".html")
-	
-	if isHTML && !license.IsPro() {
-		fmt.Println("⚠️  Interactive HTML data flow diagrams require TITO Pro or Enterprise.")
-		fmt.Println("    Get started at https://tito.security/pricing")
-		fmt.Println()
-		fmt.Println("    Generating basic text-based data flow instead...")
-		fmt.Println()
-		
-		// Generate text-based output for free tier
-		textOutput := g.generateTextDiagram(diagram)
-		
-		// Write text output (change extension to .txt)
-		textPath := strings.TrimSuffix(outputPath, ".html") + ".txt"
-		if err := os.WriteFile(textPath, []byte(textOutput), 0644); err != nil {
-			return fmt.Errorf("failed to write diagram: %w", err)
-		}
-		
-		fmt.Printf("✓ Basic data flow written to %s\n", textPath)
-		return nil
-	}
-
-	// Generate HTML for Pro/Enterprise
+	// Generate HTML
 	html := g.generateHTML(diagram)
 
 	// Write to file

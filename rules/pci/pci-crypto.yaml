@@ -1,0 +1,177 @@
+rules:
+  - id: pci-crypto-weak-algorithm-md5
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: Md5.new(...)
+          - pattern: md5(...)
+          - pattern: MessageDigest.getInstance("MD5")
+          - pattern: crypto.createHash("md5")
+          - pattern: Digest::MD5.hexdigest(...)
+    message: |
+      Weak cryptographic algorithm MD5 detected.
+      PCI DSS Requirement 4.2.1: Use strong cryptography to protect cardholder data during transmission.
+      PCI DSS Requirement 3.5.1: Use strong cryptography to render PAN unreadable.
+      Replace MD5 with SHA-256, SHA-384, or SHA-512.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby]
+    metadata:
+      category: security
+      cwe: CWE-327
+      owasp: A02:2021
+      pci_dss: "4.2.1,3.5.1"
+      confidence: HIGH
+      references:
+        - https://www.pcisecuritystandards.org/document_library
+
+  - id: pci-crypto-weak-algorithm-sha1
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.sha1(...)
+          - pattern: SHA1.new(...)
+          - pattern: sha1(...)
+          - pattern: MessageDigest.getInstance("SHA-1")
+          - pattern: crypto.createHash("sha1")
+          - pattern: Digest::SHA1.hexdigest(...)
+    message: |
+      Weak cryptographic algorithm SHA-1 detected.
+      PCI DSS Requirement 4.2.1: Use strong cryptography for data transmission.
+      SHA-1 is cryptographically broken. Use SHA-256 or stronger.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby]
+    metadata:
+      category: security
+      cwe: CWE-327
+      pci_dss: "4.2.1"
+      confidence: HIGH
+
+  - id: pci-crypto-weak-algorithm-des
+    patterns:
+      - pattern-either:
+          - pattern: DES.new(...)
+          - pattern: Cipher.getInstance("DES")
+          - pattern: crypto.createCipher("des", ...)
+          - pattern: OpenSSL::Cipher.new("des-...")
+    message: |
+      Weak encryption algorithm DES detected.
+      PCI DSS Requirement 3.5.1: PAN must be rendered unreadable using strong cryptography.
+      DES is deprecated. Use AES-256 or stronger.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby]
+    metadata:
+      category: security
+      cwe: CWE-327
+      pci_dss: "3.5.1"
+      confidence: HIGH
+
+  - id: pci-crypto-hardcoded-key
+    patterns:
+      - pattern-either:
+          - pattern: $CIPHER.new($KEY, ...)
+          - pattern: encrypt(..., key=$KEY, ...)
+          - pattern: decrypt(..., key=$KEY, ...)
+          - pattern: SecretKeySpec($KEY, ...)
+      - metavariable-pattern:
+          metavariable: $KEY
+          patterns:
+            - pattern-either:
+                - pattern: '"..."'
+                - pattern: |
+                    "..."
+                - pattern: b"..."
+    message: |
+      Hardcoded cryptographic key detected.
+      PCI DSS Requirement 3.6.1: Cryptographic keys must be protected and managed securely.
+      Store keys in a secure key management system, not in source code.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      cwe: CWE-321
+      pci_dss: "3.6.1"
+      confidence: HIGH
+
+  - id: pci-crypto-missing-tls
+    patterns:
+      - pattern-either:
+          - pattern: requests.get($URL, verify=False, ...)
+          - pattern: requests.post($URL, verify=False, ...)
+          - pattern: urllib.request.urlopen($URL)
+          - pattern: http.createServer(...)
+          - pattern: |
+              $SERVER = socket.socket(...)
+              ...
+              $SERVER.bind(...)
+      - pattern-not: https.createServer(...)
+    message: |
+      Unencrypted communication channel detected.
+      PCI DSS Requirement 4.2.1: Strong cryptography must be used to protect cardholder data during transmission over open, public networks.
+      Use HTTPS/TLS for all network communications.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-319
+      pci_dss: "4.2.1"
+      confidence: MEDIUM
+
+  - id: pci-crypto-tls-version-check
+    patterns:
+      - pattern-either:
+          - pattern: ssl.PROTOCOL_SSLv3
+          - pattern: ssl.PROTOCOL_TLSv1
+          - pattern: TLS_VERSION = "TLSv1.0"
+          - pattern: TLS_VERSION = "TLSv1.1"
+          - pattern: setEnabledProtocols(..., "TLSv1.0", ...)
+          - pattern: setEnabledProtocols(..., "TLSv1.1", ...)
+    message: |
+      Outdated TLS version detected.
+      PCI DSS Requirement 4.2.1: Strong cryptography must use TLS 1.2 or higher.
+      TLS 1.0 and 1.1 are deprecated. Use TLS 1.2 or TLS 1.3.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby]
+    metadata:
+      category: security
+      cwe: CWE-326
+      pci_dss: "4.2.1"
+      confidence: HIGH
+
+  - id: pci-crypto-insecure-random
+    patterns:
+      - pattern-either:
+          - pattern: random.random(...)
+          - pattern: Math.random(...)
+          - pattern: rand(...)
+          - pattern: Random.new(...)
+      - pattern-not-inside: |
+          # test
+          ...
+    message: |
+      Insecure random number generator used for cryptographic purposes.
+      PCI DSS Requirement 3.6.1: Cryptographic keys must be generated using approved methods.
+      Use cryptographically secure random generators (secrets, os.urandom, SecureRandom).
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-338
+      pci_dss: "3.6.1"
+      confidence: MEDIUM
+
+  - id: pci-crypto-ecb-mode
+    patterns:
+      - pattern-either:
+          - pattern: AES.new(..., AES.MODE_ECB, ...)
+          - pattern: Cipher.getInstance("AES/ECB/...")
+          - pattern: crypto.createCipheriv("aes-...-ecb", ...)
+    message: |
+      ECB (Electronic Codebook) mode encryption detected.
+      PCI DSS Requirement 3.5.1: Strong cryptography must be used to render PAN unreadable.
+      ECB mode is cryptographically weak. Use CBC, GCM, or other authenticated encryption modes.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby]
+    metadata:
+      category: security
+      cwe: CWE-327
+      pci_dss: "3.5.1"
+      confidence: HIGH

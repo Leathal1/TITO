@@ -1,0 +1,243 @@
+rules:
+  - id: pci-injection-sql-string-concat
+    patterns:
+      - pattern-either:
+          - pattern: $CURSOR.execute("... " + $VAR + " ...")
+          - pattern: $DB.query("... " + $VAR + " ...")
+          - pattern: $CURSOR.execute(f"... {$VAR} ...")
+          - pattern: $DB.query(`... ${$VAR} ...`)
+          - pattern: $STMT = $CONN.createStatement(); $STMT.execute("... " + $VAR)
+    message: |
+      SQL injection vulnerability detected via string concatenation.
+      PCI DSS Requirement 6.2.4: Software engineering techniques must prevent common vulnerabilities.
+      PCI DSS Requirement 6.4.1: Public-facing web applications must be protected against attacks.
+      Use parameterized queries or prepared statements instead of string concatenation.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-89
+      owasp: A03:2021
+      pci_dss: "6.2.4,6.4.1"
+      confidence: HIGH
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+
+  - id: pci-injection-sql-format-string
+    patterns:
+      - pattern-either:
+          - pattern: $CURSOR.execute("... %s ..." % $VAR)
+          - pattern: $DB.query("... %s ...".format($VAR))
+          - pattern: $DB.raw("... ?" + $VAR)
+    message: |
+      SQL injection risk via format string.
+      PCI DSS Requirement 6.2.4: Use parameterized queries to prevent SQL injection.
+      Replace format strings with parameterized queries using proper placeholders.
+    severity: ERROR
+    languages: [python, javascript, typescript, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-89
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-command-injection
+    patterns:
+      - pattern-either:
+          - pattern: os.system($CMD + $VAR)
+          - pattern: subprocess.call($CMD + $VAR, ...)
+          - pattern: exec($CMD + $VAR)
+          - pattern: eval($VAR)
+          - pattern: shell_exec($CMD . $VAR)
+          - pattern: |
+              const { exec } = require('child_process');
+              exec($CMD + $VAR)
+    message: |
+      Command injection vulnerability detected.
+      PCI DSS Requirement 6.2.4: Software must prevent command injection attacks.
+      Avoid executing shell commands with user input. Use safe APIs and input validation.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-78
+      owasp: A03:2021
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-ldap-injection
+    patterns:
+      - pattern-either:
+          - pattern: $LDAP.search("... " + $VAR + " ...")
+          - pattern: |
+              search_filter = "... " + $VAR + " ..."
+              $LDAP.search(..., search_filter, ...)
+    message: |
+      LDAP injection vulnerability detected.
+      PCI DSS Requirement 6.2.4: Applications must prevent injection attacks.
+      Sanitize user input before using in LDAP queries. Use escaping functions.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-90
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-xpath-injection
+    patterns:
+      - pattern-either:
+          - pattern: $XML.xpath("... " + $VAR + " ...")
+          - pattern: selectNodes("... " + $VAR + " ...")
+    message: |
+      XPath injection vulnerability detected.
+      PCI DSS Requirement 6.2.4: Prevent injection attacks through input validation.
+      Use parameterized XPath queries or properly escape user input.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-643
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-xss-direct-write
+    patterns:
+      - pattern-either:
+          - pattern: $RESPONSE.write($VAR)
+          - pattern: document.write($VAR)
+          - pattern: innerHTML = $VAR
+          - pattern: outerHTML = $VAR
+          - pattern: $EL.html($VAR)
+          - pattern: echo $VAR
+    message: |
+      Cross-site scripting (XSS) vulnerability via unescaped output.
+      PCI DSS Requirement 6.2.4: Applications must prevent XSS attacks.
+      PCI DSS Requirement 6.4.1: Web applications must be protected from attacks.
+      Escape all user-controlled data before rendering in HTML context.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-79
+      owasp: A03:2021
+      pci_dss: "6.2.4,6.4.1"
+      confidence: MEDIUM
+
+  - id: pci-injection-template-injection
+    patterns:
+      - pattern-either:
+          - pattern: render_template_string($VAR)
+          - pattern: Template($VAR).render(...)
+          - pattern: eval($TEMPLATE)
+    message: |
+      Server-side template injection vulnerability detected.
+      PCI DSS Requirement 6.2.4: Prevent code injection through templates.
+      Do not use user input directly in template strings. Use safe rendering methods.
+    severity: ERROR
+    languages: [python, javascript, typescript, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-94
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-nosql-injection
+    patterns:
+      - pattern-either:
+          - pattern: $DB.find({ $where: $VAR })
+          - pattern: $COLLECTION.find(eval($VAR))
+          - pattern: |
+              query = { $where: ... + $VAR }
+              $DB.find(query)
+    message: |
+      NoSQL injection vulnerability detected.
+      PCI DSS Requirement 6.2.4: Prevent injection attacks in NoSQL databases.
+      Avoid using $where with user input. Use parameterized queries and input validation.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-943
+      pci_dss: "6.2.4"
+      confidence: HIGH
+
+  - id: pci-injection-xml-external-entity
+    patterns:
+      - pattern-either:
+          - pattern: |
+              parser = etree.XMLParser(...)
+          - pattern: |
+              DocumentBuilderFactory.newInstance()
+          - pattern: |
+              SAXParserFactory.newInstance()
+      - pattern-not: |
+          ...
+          resolve_entities=False
+          ...
+      - pattern-not: |
+          ...
+          setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+          ...
+    message: |
+      XML External Entity (XXE) vulnerability risk detected.
+      PCI DSS Requirement 6.2.4: Prevent XXE attacks through secure XML parsing.
+      Disable external entity resolution in XML parsers.
+    severity: ERROR
+    languages: [python, java]
+    metadata:
+      category: security
+      cwe: CWE-611
+      owasp: A05:2021
+      pci_dss: "6.2.4"
+      confidence: MEDIUM
+
+  - id: pci-injection-path-traversal
+    patterns:
+      - pattern-either:
+          - pattern: open($PATH + $VAR, ...)
+          - pattern: File.open($PATH + $VAR)
+          - pattern: fs.readFile($PATH + $VAR, ...)
+          - pattern: include($VAR)
+          - pattern: require($VAR)
+      - pattern-not-inside: |
+          ...
+          if os.path.basename($VAR) == $VAR:
+            ...
+      - pattern-not-inside: |
+          ...
+          if path.basename($VAR) === $VAR
+            ...
+    message: |
+      Path traversal vulnerability detected.
+      PCI DSS Requirement 6.2.4: Prevent path traversal attacks.
+      Validate and sanitize file paths. Use allowlists and restrict to safe directories.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-22
+      owasp: A01:2021
+      pci_dss: "6.2.4"
+      confidence: MEDIUM
+
+  - id: pci-injection-deserialization
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads($VAR)
+          - pattern: yaml.load($VAR)
+          - pattern: unserialize($VAR)
+          - pattern: JSON.parse($VAR)
+      - pattern-not: yaml.safe_load($VAR)
+    message: |
+      Insecure deserialization vulnerability detected.
+      PCI DSS Requirement 6.2.4: Prevent deserialization attacks.
+      Use safe deserialization methods (yaml.safe_load, JSON schema validation).
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-502
+      owasp: A08:2021
+      pci_dss: "6.2.4"
+      confidence: MEDIUM

@@ -1,9 +1,6 @@
 package mitre
 
 import (
-	"fmt"
-
-	"github.com/Leathal1/TITO/pkg/license"
 	"github.com/Leathal1/TITO/pkg/maestro"
 	"github.com/Leathal1/TITO/pkg/stridelm"
 )
@@ -29,14 +26,6 @@ func NewMapper() *Mapper {
 
 // MapSTRIDELM maps STRIDE-LM categories to ATT&CK techniques
 func (m *Mapper) MapSTRIDELM(category stridelm.Category, confidence float64) []Mapping {
-	// Check license
-	if !license.IsPro() {
-		fmt.Println("⚠️  MITRE ATT&CK mapping requires TITO Pro or Enterprise.")
-		fmt.Println("    Get started at https://tito.security/pricing")
-		fmt.Println()
-		return []Mapping{}
-	}
-
 	mappings := make([]Mapping, 0)
 
 	switch category {
@@ -185,14 +174,6 @@ func (m *Mapper) MapSTRIDELM(category stridelm.Category, confidence float64) []M
 
 // MapMAESTRO maps MAESTRO layers to ATT&CK techniques
 func (m *Mapper) MapMAESTRO(layer maestro.Layer, confidence float64) []Mapping {
-	// Check license
-	if !license.IsPro() {
-		fmt.Println("⚠️  MITRE ATT&CK mapping requires TITO Pro or Enterprise.")
-		fmt.Println("    Get started at https://tito.security/pricing")
-		fmt.Println()
-		return []Mapping{}
-	}
-
 	mappings := make([]Mapping, 0)
 
 	switch layer {

@@ -1,0 +1,114 @@
+rules:
+  - id: pci-cardholder-pan-pattern
+    patterns:
+      - pattern-regex: '(?:^|[^0-9])([0-9]{13,19})(?:[^0-9]|$)'
+      - pattern-not-inside: |
+          # test
+          ...
+      - pattern-not-inside: |
+          // test
+          ...
+    message: |
+      Potential Primary Account Number (PAN) detected in code.
+      PCI DSS Requirement 3.5.1: PANs must be rendered unreadable wherever stored.
+      Ensure PANs are encrypted, truncated, tokenized, or hashed.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, go, ruby, php, c, cpp]
+    metadata:
+      category: security
+      cwe: CWE-359
+      owasp: A02:2021
+      pci_dss: "3.5.1"
+      confidence: MEDIUM
+      references:
+        - https://www.pcisecuritystandards.org/document_library
+
+  - id: pci-cardholder-cvv-logging
+    patterns:
+      - pattern-either:
+          - pattern: log(..., $CVV, ...)
+          - pattern: logger.log(..., $CVV, ...)
+          - pattern: console.log(..., $CVV, ...)
+          - pattern: print(..., $CVV, ...)
+          - pattern: printf(..., $CVV, ...)
+          - pattern: fmt.Println(..., $CVV, ...)
+      - metavariable-regex:
+          metavariable: $CVV
+          regex: (?i)(cvv|cvc|cid|cav|card.?verification)
+    message: |
+      Logging of Card Verification Value (CVV/CVC/CID) detected.
+      PCI DSS Requirement 3.3.3: CVV/CVC data must NOT be stored after authorization.
+      This includes logging. Remove sensitive authentication data from logs.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, go, ruby, php, c, cpp]
+    metadata:
+      category: security
+      cwe: CWE-532
+      pci_dss: "3.3.3"
+      confidence: HIGH
+      references:
+        - https://www.pcisecuritystandards.org/document_library
+
+  - id: pci-cardholder-track-data-logging
+    patterns:
+      - pattern-either:
+          - pattern: log(..., $TRACK, ...)
+          - pattern: logger.log(..., $TRACK, ...)
+          - pattern: console.log(..., $TRACK, ...)
+          - pattern: print(..., $TRACK, ...)
+      - metavariable-regex:
+          metavariable: $TRACK
+          regex: (?i)(track.?data|magnetic.?stripe|full.?track)
+    message: |
+      Logging of full magnetic stripe track data detected.
+      PCI DSS Requirement 3.3.2: Full track data must NOT be stored after authorization.
+      Remove sensitive authentication data from logs immediately.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, go, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-532
+      pci_dss: "3.3.2"
+      confidence: HIGH
+
+  - id: pci-cardholder-pin-storage
+    patterns:
+      - pattern-either:
+          - pattern: $DB.save(..., $PIN, ...)
+          - pattern: $DB.insert(..., $PIN, ...)
+          - pattern: $DB.update(..., $PIN, ...)
+          - pattern: store(..., $PIN, ...)
+      - metavariable-regex:
+          metavariable: $PIN
+          regex: (?i)(pin|personal.?identification.?number)
+    message: |
+      Potential PIN storage detected.
+      PCI DSS Requirement 3.3.1: Sensitive authentication data (including PINs) must NOT be stored after authorization.
+      Remove PIN storage from the application.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, go, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-312
+      pci_dss: "3.3.1"
+      confidence: MEDIUM
+
+  - id: pci-cardholder-data-minimization
+    patterns:
+      - pattern-either:
+          - pattern: SELECT * FROM $TABLE WHERE ...
+          - pattern: $TABLE.find_all()
+          - pattern: $TABLE.all()
+      - metavariable-regex:
+          metavariable: $TABLE
+          regex: (?i)(card|payment|transaction|customer|account)
+    message: |
+      Potential over-collection of cardholder data detected.
+      PCI DSS Requirement 3.2.1: Store only the minimum cardholder data necessary.
+      Use specific column selection instead of SELECT * to minimize data exposure.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, go, ruby, php, sql]
+    metadata:
+      category: security
+      pci_dss: "3.2.1"
+      confidence: LOW

@@ -1,0 +1,242 @@
+rules:
+  - id: pci-auth-hardcoded-password
+    patterns:
+      - pattern-either:
+          - pattern: password = "..."
+          - pattern: PASSWORD = "..."
+          - pattern: pwd = "..."
+          - pattern: pass = "..."
+          - pattern: |
+              $VAR = {
+                ...,
+                password: "...",
+                ...
+              }
+          - pattern: |
+              $VAR = {
+                ...,
+                "password": "...",
+                ...
+              }
+      - pattern-not: password = ""
+      - pattern-not: password = "TODO"
+      - pattern-not: password = "CHANGEME"
+      - pattern-not-inside: |
+          # test
+          ...
+      - pattern-not-inside: |
+          // test
+          ...
+    message: |
+      Hardcoded password detected.
+      PCI DSS Requirement 8.2.1: Strong authentication credentials must be assigned.
+      PCI DSS Requirement 2.2.2: Vendor default passwords must be changed.
+      Store credentials securely using environment variables or secret management.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A07:2021
+      pci_dss: "8.2.1,2.2.2"
+      confidence: HIGH
+      references:
+        - https://www.pcisecuritystandards.org/document_library
+
+  - id: pci-auth-default-credentials
+    patterns:
+      - pattern-either:
+          - pattern: username = "admin"
+          - pattern: username = "root"
+          - pattern: username = "administrator"
+          - pattern: password = "admin"
+          - pattern: password = "password"
+          - pattern: password = "12345"
+          - pattern: |
+              login($USER, $PASS)
+      - metavariable-pattern:
+          metavariable: $USER
+          patterns:
+            - pattern-either:
+                - pattern: '"admin"'
+                - pattern: '"root"'
+      - metavariable-pattern:
+          metavariable: $PASS
+          patterns:
+            - pattern-either:
+                - pattern: '"admin"'
+                - pattern: '"password"'
+    message: |
+      Default credentials detected.
+      PCI DSS Requirement 2.2.2: Vendor default accounts and passwords must be removed or changed.
+      Change default credentials before deployment.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      cwe: CWE-798
+      pci_dss: "2.2.2"
+      confidence: HIGH
+
+  - id: pci-auth-weak-password-policy
+    patterns:
+      - pattern-either:
+          - pattern: MIN_PASSWORD_LENGTH = $N
+          - pattern: PASSWORD_MIN_LENGTH = $N
+          - pattern: minPasswordLength = $N
+      - metavariable-comparison:
+          metavariable: $N
+          comparison: $N < 12
+    message: |
+      Weak password length policy detected.
+      PCI DSS Requirement 8.6.2: Passwords must be a minimum length of 12 characters.
+      Increase minimum password length to at least 12 characters.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      pci_dss: "8.6.2"
+      confidence: HIGH
+
+  - id: pci-auth-missing-mfa-indicator
+    patterns:
+      - pattern-either:
+          - pattern: |
+              def login($USER, $PASS):
+                ...
+          - pattern: |
+              function login($USER, $PASS) {
+                ...
+              }
+          - pattern: |
+              async function login($USER, $PASS) {
+                ...
+              }
+      - pattern-not-inside: |
+          ...
+          verify_mfa(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          check_2fa(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          totp.verify(...)
+          ...
+    message: |
+      Login function without MFA verification detected.
+      PCI DSS Requirement 8.3.1: MFA must be implemented for all access into the CDE.
+      PCI DSS Requirement 8.4.2: MFA must be implemented for all system component access.
+      Implement multi-factor authentication for all authentication flows.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "8.3.1,8.4.2"
+      confidence: MEDIUM
+
+  - id: pci-auth-missing-authentication
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @app.route("/$PATH")
+              def $FUNC(...):
+                ...
+          - pattern: |
+              app.get("/$PATH", (...) => {
+                ...
+              })
+          - pattern: |
+              @GetMapping("/$PATH")
+              public $TYPE $METHOD(...) {
+                ...
+              }
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: (api|admin|account|payment|card|transaction)
+      - pattern-not-inside: |
+          @login_required
+          ...
+      - pattern-not-inside: |
+          @require_auth
+          ...
+      - pattern-not-inside: |
+          authenticate(...)
+          ...
+    message: |
+      Sensitive endpoint without authentication detected.
+      PCI DSS Requirement 8.2.1: All users must be authenticated before accessing system components.
+      PCI DSS Requirement 7.2.1: Access control systems must be in place.
+      Add authentication to all sensitive endpoints.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      cwe: CWE-306
+      pci_dss: "8.2.1,7.2.1"
+      confidence: MEDIUM
+
+  - id: pci-auth-session-timeout-missing
+    patterns:
+      - pattern-either:
+          - pattern: |
+              session.timeout = $N
+          - pattern: |
+              SESSION_TIMEOUT = $N
+          - pattern: |
+              session_timeout = $N
+      - metavariable-comparison:
+          metavariable: $N
+          comparison: $N > 900
+    message: |
+      Session timeout exceeds recommended duration.
+      PCI DSS Requirement 8.2.1: Sessions should timeout after 15 minutes of inactivity for high-risk systems.
+      Reduce session timeout to 15 minutes (900 seconds) or less for cardholder data access.
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "8.2.1"
+      confidence: MEDIUM
+
+  - id: pci-auth-api-key-in-code
+    patterns:
+      - pattern-either:
+          - pattern: API_KEY = "..."
+          - pattern: api_key = "..."
+          - pattern: apiKey = "..."
+          - pattern: X-API-Key = "..."
+          - pattern: Authorization = "Bearer ..."
+      - pattern-not: API_KEY = ""
+      - pattern-not: api_key = os.getenv(...)
+      - pattern-not: apiKey = process.env...
+    message: |
+      Hardcoded API key detected.
+      PCI DSS Requirement 8.2.1: Authentication credentials must be properly managed.
+      PCI DSS Requirement 3.6.1: Cryptographic keys must be protected.
+      Store API keys in environment variables or secret management systems.
+    severity: ERROR
+    languages: [python, javascript, typescript, java, ruby, php, go]
+    metadata:
+      category: security
+      cwe: CWE-798
+      pci_dss: "8.2.1,3.6.1"
+      confidence: HIGH
+
+  - id: pci-auth-password-history-disabled
+    patterns:
+      - pattern-either:
+          - pattern: PASSWORD_HISTORY_COUNT = 0
+          - pattern: password_history = 0
+          - pattern: passwordHistory = 0
+    message: |
+      Password history is disabled.
+      PCI DSS Requirement 8.6.3: Password history must be maintained to prevent reuse.
+      Enable password history to prevent users from reusing recent passwords (minimum 4 passwords).
+    severity: WARNING
+    languages: [python, javascript, typescript, java, ruby, php]
+    metadata:
+      category: security
+      pci_dss: "8.6.3"
+      confidence: HIGH
