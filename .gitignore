@@ -42,3 +42,5 @@ work/
 
 # License server (separate repo: github.com/Leathal1/tito-license-server)
 license-server/
+threat-model*.html
+*.html
