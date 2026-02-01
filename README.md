@@ -1,4 +1,4 @@
-# 🛡️ TITO — Threat In, Threat Out
+# TITO — Threat In, Threat Out
 
 > **The threat modeler that thinks like an attacker.**
 
@@ -20,16 +20,16 @@ Every other threat modeling tool makes you draw diagrams by hand. TITO **reads y
 
 | Feature | TITO | Microsoft TMT | OWASP Threat Dragon | IriusRisk |
 |---------|:----:|:-------------:|:-------------------:|:---------:|
-| **STRIDE-LM** | ✅ | STRIDE only | STRIDE only | STRIDE only |
-| **MAESTRO** (AI/Agent threats) | ✅ | ❌ | ❌ | ❌ |
-| **Attack Path Analysis** | ✅ | ❌ | ❌ | ❌ |
-| **3D Visualization** | ✅ | ❌ | ❌ | ❌ |
-| **SAST Integration** | ✅ Semgrep | ❌ | ❌ | Limited |
-| **MITRE ATT&CK** | ✅ | ❌ | ❌ | Limited |
-| **PR Threat Diffing** | ✅ | ❌ | ❌ | ❌ |
-| **Interactive Data Flow** | ✅ D3.js + Three.js | Basic | Basic | Basic |
-| **CLI / CI/CD** | ✅ Single binary | ❌ GUI only | ❌ Web only | ❌ SaaS |
-| **Runs Anywhere** | ✅ Mac/Linux/Windows | Windows only | Browser | Cloud |
+| **STRIDE-LM** | Yes | STRIDE only | STRIDE only | STRIDE only |
+| **MAESTRO** (AI/Agent threats) | Yes | No | No | No |
+| **Attack Path Analysis** | Yes | No | No | No |
+| **3D Visualization** | Yes | No | No | No |
+| **SAST Integration** | Yes Semgrep | No | No | Limited |
+| **MITRE ATT&CK** | Yes | No | No | Limited |
+| **PR Threat Diffing** | Yes | No | No | No |
+| **Interactive Data Flow** | Yes D3.js + Three.js | Basic | Basic | Basic |
+| **CLI / CI/CD** | Yes Single binary | No GUI only | No Web only | No SaaS |
+| **Runs Anywhere** | Yes Mac/Linux/Windows | Windows only | Browser | Cloud |
 
 ---
 
@@ -56,39 +56,39 @@ open threat-model.html
 ```
 
 ```
-🔍 TITO Repository Scanner
+TITO Repository Scanner
 ==================================================
 
-📂 Cloning repository: https://github.com/your/app
+Cloning repository: https://github.com/your/app
 
 ✓ Repository scanned successfully
   Assets discovered: 655
   Data flows: 5205
 
-🔍 Analyzing code for security threats...
+Analyzing code for security threats...
 ✓ Total processed threats: 19
 
-🤖 Running MAESTRO agentic AI threat analysis...
+Running MAESTRO agentic AI threat analysis...
 ✓ MAESTRO Classification complete
 
-🎯 Enriching with MITRE ATT&CK mappings...
+Enriching with MITRE ATT&CK mappings...
 ✓ ATT&CK techniques mapped
 
-📊 Results Summary:
+Results Summary:
 --------------------------------------------------
-  🔴 Critical threats: 8
-  🟠 High threats: 6
-  🟡 Medium threats: 3
-  🟢 Low threats: 2
-  📦 Total affected assets: 655
-  🔄 Data flows analyzed: 5205
+  Critical threats: 8
+  High threats: 6
+  Medium threats: 3
+  Low threats: 2
+  Total affected assets: 655
+  Data flows analyzed: 5205
 ```
 
 ---
 
 ## Features
 
-### ⚔️ Attack Path Analysis
+### Attack Path Analysis
 
 **Like BloodHound, but for application-layer threat models.**
 
@@ -106,10 +106,10 @@ Each path shows:
 
 Attack paths overlay directly onto the 3D visualization — red glowing trails showing exactly how an attacker would move through your system.
 
-### 🌐 3D Threat Visualization
+### 3D Threat Visualization
 
 Interactive Three.js visualization with:
-- **Color-coded nodes** by risk severity (🔴 critical → 🟢 low)
+- **Color-coded nodes** by risk severity (critical → low)
 - **Animated data flows** between components
 - **Trust boundaries** as translucent shells
 - **Attack path overlays** with glowing particle trails
@@ -123,7 +123,7 @@ Interactive Three.js visualization with:
 
 Also generates **2D interactive diagrams** (D3.js) with the `--dataflow` flag.
 
-### 🔀 PR Threat Diffing
+### PR Threat Diffing
 
 Run `tito diff` in CI to catch security regressions on every pull request:
 
@@ -133,13 +133,13 @@ tito diff --repo . --base main --head feature-branch --format markdown
 
 Output:
 ```markdown
-## 🛡️ TITO Threat Model Delta
+## TITO Threat Model Delta
 
-**Risk: ⬆️ INCREASED** (6.2 → 7.8) | Verdict: ⚠️ WARN
+**Risk: INCREASED** (6.2 → 7.8) | Verdict: WARN
 
-### ⚠️ New Threats (2)
-- 🔴 SQL Injection in /api/admin/users [CRITICAL]
-- 🟠 Unauthenticated endpoint exposed [HIGH]
+### New Threats (2)
+- SQL Injection in /api/admin/users [CRITICAL]
+- Unauthenticated endpoint exposed [HIGH]
 ```
 
 Exit codes for CI gates:
@@ -149,7 +149,7 @@ Exit codes for CI gates:
 
 See [docs/DIFF.md](docs/DIFF.md) for full documentation.
 
-### 🎯 STRIDE-LM
+### STRIDE-LM
 
 Extended STRIDE with **Lateral Movement** and **Malware** categories. Maps threats via keyword analysis, CWE IDs, and MITRE ATT&CK tactics.
 
@@ -164,7 +164,7 @@ Extended STRIDE with **Lateral Movement** and **Malware** categories. Maps threa
 | **L**ateral Movement | Internal pivoting, trust exploitation |
 | **M**alware | Supply chain attacks, code injection |
 
-### 🤖 MAESTRO (Agentic AI Security)
+### MAESTRO (Agentic AI Security)
 
 Cloud Security Alliance's 7-layer framework for AI agent threat modeling — the only CLI tool that implements it:
 
@@ -178,7 +178,7 @@ Cloud Security Alliance's 7-layer framework for AI agent threat modeling — the
 | 6. Deployment & Infra | Container escapes, sandbox bypasses |
 | 7. Ecosystem & Governance | Compliance gaps, accountability |
 
-### 🔬 Semgrep + MITRE ATT&CK
+### Semgrep + MITRE ATT&CK
 
 - Runs **Semgrep** static analysis and maps findings to STRIDE-LM categories via CWE mappings
 - Every finding enriched with relevant **ATT&CK techniques** across all 12 tactics
@@ -206,27 +206,21 @@ Key findings included hardcoded credentials, unauthenticated payment APIs, and a
 
 ---
 
-## Free vs Pro vs Enterprise
+## All Features — Free & Open Source
 
-| | **Free** | **Pro** ($29/mo) | **Enterprise** |
-|---|:---:|:---:|:---:|
-| Repository scanning | ✅ | ✅ | ✅ |
-| STRIDE-LM classification | ✅ | ✅ | ✅ |
-| 2D Data flow diagrams | ✅ | ✅ | ✅ |
-| Semgrep integration | ✅ | ✅ | ✅ |
-| MITRE ATT&CK mapping | ✅ | ✅ | ✅ |
-| **MAESTRO** (AI threats) | — | ✅ | ✅ |
-| **Attack path analysis** | — | ✅ | ✅ |
-| **3D visualization** | — | ✅ | ✅ |
-| **PR threat diffing** | — | ✅ | ✅ |
-| **Attack narratives** | — | ✅ | ✅ |
-| API server | — | — | ✅ |
-| Compliance mapping | — | — | ✅ |
-| Web dashboard | — | — | ✅ |
-| Team management | — | — | ✅ |
-| Priority support | — | — | ✅ |
+Everything is included. No tiers. No gates. No license keys.
 
-The free tier is a fully functional threat modeler. Pro unlocks the features that make TITO different.
+- Repository scanning & asset discovery
+- STRIDE-LM classification
+- MAESTRO agentic AI analysis
+- MITRE ATT&CK mapping
+- PCI DSS v4.0 compliance mapping
+- Application architecture detection
+- Attack path analysis with narratives
+- 2D & 3D visualization
+- PR threat diffing
+- Semgrep integration
+- Compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST 800-53, HIPAA)
 
 ---
 
@@ -337,9 +331,9 @@ tito diff           Compare threat models between two scans (PR diff)
 tito report         Generate threat report from scan results
 tito serve          Serve a TITO report or diagram in the browser
 tito status         Show TITO system status and license tier
-tito dashboard      Start the web dashboard (Enterprise)
-tito api            Start the TITO API server (Enterprise)
-tito compliance     Map threats to compliance frameworks (Enterprise)
+tito dashboard      Start the web dashboard
+tito api            Start the TITO API server
+tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)
 ```
 
 ## Contributing
