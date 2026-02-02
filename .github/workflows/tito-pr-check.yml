@@ -21,7 +21,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run TITO
-        uses: Leathal1/TITO@main
+        uses: ./
         id: tito
         with:
           diff-base: ${{ github.event.pull_request.base.ref }}
