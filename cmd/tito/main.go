@@ -634,9 +634,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 		}
 		
-		// Generate 3D diagram
+		// Generate 3D diagram (Pro feature)
 		if enable3D {
-			fmt.Println("🌌 Generating 3D data flow visualization...")
+			if !license.IsPro() {
+				fmt.Println()
+				fmt.Println("🔒 3D visualization requires TITO Pro or higher.")
+				fmt.Println("   The stunning 3D threat model brings your attack surface to life —")
+				fmt.Println("   explore data flows, trust boundaries, and attack paths interactively.")
+				fmt.Println("   → https://tito.security/pricing")
+				fmt.Println()
+				fmt.Println("💡 Your 2D diagram and text report are still available!")
+				fmt.Println()
+			} else {
+				fmt.Println("🌌 Generating 3D data flow visualization...")
 			
 			// If both flags, add -3d suffix
 			diagram3DPath := basePath
@@ -688,12 +698,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 				}
 			}
 			
-			fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
-			fmt.Println("  Open in browser to explore the stunning 3D threat model!")
-			if enableAttackPaths {
-				fmt.Println("  Click 'Show Attack Paths' button to see attack chains!")
+				fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
+				fmt.Println("  Open in browser to explore the stunning 3D threat model!")
+				if enableAttackPaths {
+					fmt.Println("  Click 'Show Attack Paths' button to see attack chains!")
+				}
+				fmt.Println()
 			}
-			fmt.Println()
 		}
 	}
 
@@ -906,11 +917,20 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n📄 Threat model report: %s\n", reportPath)
 	}
 
-	// Save scan result if requested
+	// Save scan result if requested (Pro feature)
 	savePath, _ := cmd.Flags().GetString("save")
 	if savePath != "" {
-		fmt.Println()
-		fmt.Printf("💾 Saving scan result to %s...\n", savePath)
+		if !license.IsPro() {
+			fmt.Println()
+			fmt.Println("🔒 Saving scan results requires TITO Pro or higher.")
+			fmt.Println("   Save results to .tito.json for PR diffing and historical tracking.")
+			fmt.Println("   → https://tito.security/pricing")
+			fmt.Println()
+			savePath = "" // Skip saving
+		} else {
+			fmt.Println()
+			fmt.Printf("💾 Saving scan result to %s...\n", savePath)
+		}
 	}
 	if savePath != "" {
 		// Build attack paths for save
@@ -1528,6 +1548,21 @@ func init() {
 }
 
 func runCompliance(cmd *cobra.Command, args []string) error {
+	if !license.IsEnterprise() {
+		fmt.Println()
+		fmt.Println("🏢 Compliance mapping is a TITO Enterprise feature")
+		fmt.Println()
+		fmt.Println("Enterprise includes:")
+		fmt.Println("  • SOC 2, ISO 27001, NIST 800-53, PCI DSS, HIPAA mappings")
+		fmt.Println("  • Automated compliance gap analysis")
+		fmt.Println("  • Evidence generation for audits")
+		fmt.Println("  • Priority support")
+		fmt.Println()
+		fmt.Println("Learn more: https://tito.security/enterprise")
+		fmt.Println()
+		return nil
+	}
+
 	framework, _ := cmd.Flags().GetString("framework")
 	
 	// PCI DSS compliance
@@ -1714,6 +1749,21 @@ func init() {
 }
 
 func runAPI(cmd *cobra.Command, args []string) error {
+	if !license.IsEnterprise() {
+		fmt.Println()
+		fmt.Println("🏢 API server is a TITO Enterprise feature")
+		fmt.Println()
+		fmt.Println("Enterprise includes:")
+		fmt.Println("  • REST API for programmatic access")
+		fmt.Println("  • WebSocket for real-time scan events")
+		fmt.Println("  • Integration with internal tooling")
+		fmt.Println("  • Priority support")
+		fmt.Println()
+		fmt.Println("Learn more: https://tito.security/enterprise")
+		fmt.Println()
+		return nil
+	}
+
 	// TODO: Implement REST API server
 	port, _ := cmd.Flags().GetInt("port")
 	fmt.Println("🏢 TITO API Server")
@@ -2090,39 +2140,37 @@ func init() {
 
 func runActivate(cmd *cobra.Command, args []string) error {
 	startTrial, _ := cmd.Flags().GetBool("trial")
-	email, _ := cmd.Flags().GetString("email")
-	
-	// Initialize license system
-	if err := license.InitLicenseSystem(); err != nil {
-		return fmt.Errorf("failed to initialize license system: %w", err)
-	}
 	
 	if startTrial {
-		// Generate and save trial license
+		// Activate trial by saving a special "trial" license key
 		fmt.Println("🚀 Starting TITO Pro 14-day trial...")
 		fmt.Println()
 		
-		if email == "" {
-			email = "trial-user"
+		// Save trial license (will create trial.json on first CheckLicense() call)
+		trialLicense := &license.License{
+			Key:  "trial",
+			Tier: license.TierPro,
 		}
 		
-		licenseKey, err := license.GenerateTrialLicense(email)
-		if err != nil {
-			return fmt.Errorf("failed to generate trial license: %w", err)
-		}
-		
-		if err := license.SaveLicense(licenseKey); err != nil {
+		if err := license.SaveLicense(trialLicense); err != nil {
 			return fmt.Errorf("failed to save trial license: %w", err)
+		}
+		
+		// Trigger trial creation
+		license.ResetCache()
+		lic, err := license.CheckLicense()
+		if err != nil {
+			return fmt.Errorf("failed to activate trial: %w", err)
 		}
 		
 		fmt.Println("✓ Trial activated successfully!")
 		fmt.Println()
 		fmt.Println("Your 14-day Pro trial includes:")
-		fmt.Println("  ⭐ LLM-powered threat intelligence")
-		fmt.Println("  ⭐ Exploitability prediction engine")
-		fmt.Println("  ⭐ Continuous drift detection")
-		fmt.Println("  ⭐ Auto-remediation advisor")
-		fmt.Println("  ⭐ Crown jewel auto-discovery")
+		fmt.Println("  ⭐ Drift detection")
+		fmt.Println("  ⭐ 3D visualization")
+		fmt.Println("  ⭐ Full attack paths")
+		fmt.Println("  ⭐ Scan result saving")
+		fmt.Println("  ⭐ PR diff reports")
 		fmt.Println()
 		fmt.Println("Try these commands:")
 		fmt.Println("  tito drift --set-baseline    # Set security baseline")
@@ -2131,9 +2179,10 @@ func runActivate(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		
 		// Show expiration
-		lic, _ := license.GetCurrentLicense()
-		fmt.Printf("Trial expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
-		fmt.Println()
+		if !lic.ExpiresAt.IsZero() {
+			fmt.Printf("Trial expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
+			fmt.Println()
+		}
 		
 		return nil
 	}
@@ -2148,20 +2197,14 @@ func runActivate(cmd *cobra.Command, args []string) error {
 	fmt.Println("🔐 Activating TITO Pro license...")
 	fmt.Println()
 	
-	// Decode if base64
-	decoded, err := license.DecodeLicenseKey(licenseKey)
-	if err != nil {
-		return fmt.Errorf("invalid license key format: %w", err)
-	}
-	
 	// Validate
-	lic, err := license.ValidateLicense(decoded)
+	lic, err := license.ValidateLicenseKey(licenseKey)
 	if err != nil {
 		return fmt.Errorf("license validation failed: %w", err)
 	}
 	
 	// Save
-	if err := license.SaveLicense(decoded); err != nil {
+	if err := license.SaveLicense(lic); err != nil {
 		return fmt.Errorf("failed to save license: %w", err)
 	}
 	
@@ -2178,22 +2221,16 @@ func runActivate(cmd *cobra.Command, args []string) error {
 	emoji := tierEmoji[lic.Tier]
 	fmt.Printf("%s Tier: %s\n", emoji, lic.Tier)
 	
-	if lic.User != "" {
-		fmt.Printf("User: %s\n", lic.User)
+	if lic.OrgName != "" {
+		fmt.Printf("Organization: %s\n", lic.OrgName)
 	}
 	
 	if !lic.ExpiresAt.IsZero() {
 		fmt.Printf("Expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
 	}
 	
-	if len(lic.Features) > 0 {
-		fmt.Println()
-		fmt.Println("Enabled features:")
-		for _, feature := range lic.Features {
-			fmt.Printf("  ✓ %s\n", feature)
-		}
-	}
-	
+	fmt.Println()
+	fmt.Println("Run 'tito license' to see full license details.")
 	fmt.Println()
 	
 	return nil
@@ -2204,10 +2241,6 @@ var licenseCmd = &cobra.Command{
 	Short: "Show current license status",
 	Long:  "Display the current TITO license tier and features",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := license.InitLicenseSystem(); err != nil {
-			return fmt.Errorf("failed to initialize license system: %w", err)
-		}
-		
 		return license.PrintLicenseStatus()
 	},
 }

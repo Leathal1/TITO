@@ -1,388 +1,324 @@
 package license
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
-func setupTestEnv(t *testing.T) string {
-	// Create temp directory for test license files
-	tempDir := t.TempDir()
-	licenseDir = tempDir
-	licensePath = filepath.Join(tempDir, "license.key")
-	currentLicense = nil // Clear cache
-	publicKey = nil      // Force regeneration
-	return tempDir
+// testPrivateKey is an Ed25519 private key used only in tests.
+var testPrivateKey ed25519.PrivateKey
+var testPublicKey ed25519.PublicKey
+
+func TestMain(m *testing.M) {
+	// Generate a throwaway keypair for tests
+	var err error
+	testPublicKey, testPrivateKey, err = ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate test keypair: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Override the embedded public key with our test key
+	SetPublicKeyForTesting(testPublicKey)
+
+	os.Exit(m.Run())
 }
 
-func TestGenerateKeyPair(t *testing.T) {
-	privKey, pubKey, err := GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair failed: %v", err)
-	}
-	
-	if privKey == nil {
-		t.Error("Private key is nil")
-	}
-	
-	if pubKey == nil {
-		t.Error("Public key is nil")
-	}
+// generateTestKey signs a license key using the test private key.
+func generateTestKey(tier Tier, orgName string, expiresAt time.Time) string {
+	expiryStr := expiresAt.Format("20060102")
+	payload := fmt.Sprintf("tito_%s_%s_%s", tier, orgName, expiryStr)
+	sig := ed25519.Sign(testPrivateKey, []byte(payload))
+	sigB64 := base64.RawURLEncoding.EncodeToString(sig)
+	return fmt.Sprintf("tito_%s_%s_%s_%s", tier, orgName, expiryStr, sigB64)
 }
 
-func TestSaveAndLoadKeyPair(t *testing.T) {
-	tempDir := setupTestEnv(t)
-	keyPath := filepath.Join(tempDir, "test-keypair.pem")
-	
-	// Generate keypair
-	privKey, pubKey, err := GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair failed: %v", err)
-	}
-	
-	// Save
-	if err := SaveKeyPair(privKey, pubKey, keyPath); err != nil {
-		t.Fatalf("SaveKeyPair failed: %v", err)
-	}
-	
-	// Load
-	loadedPrivKey, loadedPubKey, err := LoadKeyPair(keyPath)
-	if err != nil {
-		t.Fatalf("LoadKeyPair failed: %v", err)
-	}
-	
-	// Verify keys match
-	if loadedPrivKey.N.Cmp(privKey.N) != 0 {
-		t.Error("Private keys don't match")
-	}
-	
-	if loadedPubKey.N.Cmp(pubKey.N) != 0 {
-		t.Error("Public keys don't match")
-	}
-}
+func TestValidateLicenseKey(t *testing.T) {
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
 
-func TestGenerateLicenseKey(t *testing.T) {
-	privKey, _, err := GenerateKeyPair()
+	license, err := ValidateLicenseKey(key)
 	if err != nil {
-		t.Fatalf("GenerateKeyPair failed: %v", err)
+		t.Fatalf("ValidateLicenseKey failed: %v", err)
 	}
-	
-	opts := LicenseKeyOptions{
-		Tier:      TierPro,
-		Features:  []string{"drift-detection", "llm-intelligence"},
-		User:      "test@example.com",
-		ValidDays: 365,
-		IsTrial:   false,
-	}
-	
-	key, err := GenerateLicenseKey(privKey, opts)
-	if err != nil {
-		t.Fatalf("GenerateLicenseKey failed: %v", err)
-	}
-	
-	if key == "" {
-		t.Error("Generated key is empty")
-	}
-}
 
-func TestValidateLicense(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system (generates test keypair)
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
-	}
-	
-	// Load keypair for signing
-	keyPairPath := filepath.Join(licenseDir, "test-keypair.pem")
-	privKey, _, err := LoadKeyPair(keyPairPath)
-	if err != nil {
-		t.Fatalf("LoadKeyPair failed: %v", err)
-	}
-	
-	// Generate a license
-	opts := LicenseKeyOptions{
-		Tier:      TierPro,
-		Features:  []string{"drift-detection"},
-		User:      "test@example.com",
-		ValidDays: 30,
-		IsTrial:   false,
-	}
-	
-	key, err := GenerateLicenseKey(privKey, opts)
-	if err != nil {
-		t.Fatalf("GenerateLicenseKey failed: %v", err)
-	}
-	
-	// Validate
-	license, err := ValidateLicense(key)
-	if err != nil {
-		t.Fatalf("ValidateLicense failed: %v", err)
-	}
-	
 	if license.Tier != TierPro {
 		t.Errorf("Expected tier %s, got %s", TierPro, license.Tier)
 	}
-	
-	if license.User != "test@example.com" {
-		t.Errorf("Expected user test@example.com, got %s", license.User)
-	}
-	
-	if len(license.Features) != 1 || license.Features[0] != "drift-detection" {
-		t.Errorf("Features mismatch: %v", license.Features)
+
+	if license.OrgName != "TestOrg" {
+		t.Errorf("Expected org name TestOrg, got %s", license.OrgName)
 	}
 }
 
-func TestExpiredLicense(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
+func TestValidateLicenseKey_AllTiers(t *testing.T) {
+	tiers := []Tier{TierCommunity, TierPro, TierTeam, TierEnterprise}
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+
+	for _, tier := range tiers {
+		t.Run(string(tier), func(t *testing.T) {
+			key := generateTestKey(tier, "TestOrg", expiresAt)
+			license, err := ValidateLicenseKey(key)
+			if err != nil {
+				t.Fatalf("ValidateLicenseKey failed for %s: %v", tier, err)
+			}
+
+			if license.Tier != tier {
+				t.Errorf("Expected tier %s, got %s", tier, license.Tier)
+			}
+		})
 	}
-	
-	// Load keypair
-	keyPairPath := filepath.Join(licenseDir, "test-keypair.pem")
-	privKey, _, err := LoadKeyPair(keyPairPath)
-	if err != nil {
-		t.Fatalf("LoadKeyPair failed: %v", err)
-	}
-	
-	// Generate expired license (manually set expiry to 10 days ago)
-	now := time.Now()
-	expiredTime := now.Add(-10 * 24 * time.Hour)
-	
-	claims := Claims{
-		Tier:     string(TierPro),
-		Features: []string{"drift-detection"},
-		User:     "test@example.com",
-		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(now.Add(-15 * 24 * time.Hour)), // Issued 15 days ago
-			ExpiresAt: jwt.NewNumericDate(expiredTime), // Expired 10 days ago
-			Subject:   "test@example.com",
-		},
-	}
-	
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	key, err := token.SignedString(privKey)
-	if err != nil {
-		t.Fatalf("GenerateLicenseKey failed: %v", err)
-	}
-	
-	// This should fail validation (outside grace period)
-	_, err = ValidateLicense(key)
+}
+
+func TestValidateLicenseKey_Expired(t *testing.T) {
+	expiresAt := time.Now().Add(-24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
+
+	_, err := ValidateLicenseKey(key)
 	if err == nil {
-		t.Error("Expected validation to fail for expired license outside grace period")
+		t.Fatal("Expected error for expired license, got nil")
 	}
 }
 
-func TestTrialLicense(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
-	}
-	
-	// Generate trial license
-	key, err := GenerateTrialLicense("trial@example.com")
-	if err != nil {
-		t.Fatalf("GenerateTrialLicense failed: %v", err)
-	}
-	
-	// Validate
-	license, err := ValidateLicense(key)
-	if err != nil {
-		t.Fatalf("ValidateLicense failed: %v", err)
-	}
-	
-	if !license.IsTrial {
-		t.Error("Expected trial license")
-	}
-	
-	if license.Tier != TierPro {
-		t.Errorf("Expected Pro tier for trial, got %s", license.Tier)
-	}
-	
-	// Check expiration is ~14 days from now
-	expectedExpiry := time.Now().Add(14 * 24 * time.Hour)
-	diff := license.ExpiresAt.Sub(expectedExpiry).Abs()
-	if diff > time.Minute {
-		t.Errorf("Trial expiry not ~14 days: %v", license.ExpiresAt)
+func TestValidateLicenseKey_InvalidFormat(t *testing.T) {
+	_, err := ValidateLicenseKey("invalid_key")
+	if err == nil {
+		t.Fatal("Expected error for invalid key format, got nil")
 	}
 }
 
-func TestSaveAndLoadLicense(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
-	}
-	
-	// Generate trial
-	key, err := GenerateTrialLicense("test@example.com")
-	if err != nil {
-		t.Fatalf("GenerateTrialLicense failed: %v", err)
-	}
-	
-	// Save
-	if err := SaveLicense(key); err != nil {
-		t.Fatalf("SaveLicense failed: %v", err)
-	}
-	
-	// Load
-	license, err := GetCurrentLicense()
-	if err != nil {
-		t.Fatalf("GetCurrentLicense failed: %v", err)
-	}
-	
-	if license.Tier != TierPro {
-		t.Errorf("Expected Pro tier, got %s", license.Tier)
-	}
-	
-	if !license.IsTrial {
-		t.Error("Expected trial license")
+func TestValidateLicenseKey_TamperedSignature(t *testing.T) {
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
+
+	// Tamper with the signature (flip some bits in the middle of signature)
+	parts := key[:len(key)-20] + "XXXXXXXXXX" + key[len(key)-10:]
+	_, err := ValidateLicenseKey(parts)
+	if err == nil {
+		t.Fatal("Expected error for tampered signature, got nil")
 	}
 }
 
-func TestGetCurrentLicenseNoFile(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
+func TestValidateLicenseKey_WrongKey(t *testing.T) {
+	// Sign with a completely different private key
+	_, otherPriv, _ := ed25519.GenerateKey(rand.Reader)
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	expiryStr := expiresAt.Format("20060102")
+	payload := fmt.Sprintf("tito_%s_%s_%s", TierPro, "TestOrg", expiryStr)
+	sig := ed25519.Sign(otherPriv, []byte(payload))
+	sigB64 := base64.RawURLEncoding.EncodeToString(sig)
+	key := fmt.Sprintf("tito_%s_%s_%s_%s", TierPro, "TestOrg", expiryStr, sigB64)
+
+	_, err := ValidateLicenseKey(key)
+	if err == nil {
+		t.Fatal("Expected error for key signed with wrong private key, got nil")
 	}
-	
-	// No license file should return Community tier
-	license, err := GetCurrentLicense()
+}
+
+func TestCheckLicense_SkipFlag(t *testing.T) {
+	os.Setenv("TITO_SKIP_LICENSE", "1")
+	defer os.Unsetenv("TITO_SKIP_LICENSE")
+
+	cachedLicense = nil
+
+	license, err := CheckLicense()
 	if err != nil {
-		t.Fatalf("GetCurrentLicense failed: %v", err)
+		t.Fatalf("CheckLicense failed: %v", err)
 	}
-	
+
+	if license.Tier != TierEnterprise {
+		t.Errorf("Expected enterprise tier with skip flag, got %s", license.Tier)
+	}
+}
+
+func TestCheckLicense_EnvVar(t *testing.T) {
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierPro, "EnvTest", expiresAt)
+
+	os.Setenv("TITO_LICENSE_KEY", key)
+	defer os.Unsetenv("TITO_LICENSE_KEY")
+
+	cachedLicense = nil
+	os.Unsetenv("TITO_SKIP_LICENSE")
+
+	license, err := CheckLicense()
+	if err != nil {
+		t.Fatalf("CheckLicense failed: %v", err)
+	}
+
+	if license.OrgName != "EnvTest" {
+		t.Errorf("Expected org name EnvTest, got %s", license.OrgName)
+	}
+}
+
+func TestCheckLicense_Community(t *testing.T) {
+	os.Unsetenv("TITO_LICENSE_KEY")
+	os.Unsetenv("TITO_SKIP_LICENSE")
+	cachedLicense = nil
+
+	license, err := CheckLicense()
+	if err != nil {
+		t.Fatalf("CheckLicense failed: %v", err)
+	}
+
 	if license.Tier != TierCommunity {
-		t.Errorf("Expected Community tier when no license file, got %s", license.Tier)
+		t.Errorf("Expected community tier, got %s", license.Tier)
 	}
 }
 
-func TestIsProEnabled(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
+func TestIsPro(t *testing.T) {
+	tests := []struct {
+		name     string
+		tier     Tier
+		expected bool
+	}{
+		{"Community tier", TierCommunity, false},
+		{"Pro tier", TierPro, true},
+		{"Team tier", TierTeam, true},
+		{"Enterprise tier", TierEnterprise, true},
 	}
-	
-	// Initially Community (no license file)
-	if IsProEnabled() {
-		t.Error("Pro should not be enabled with no license")
-	}
-	
-	// Activate trial
-	key, err := GenerateTrialLicense("test@example.com")
-	if err != nil {
-		t.Fatalf("GenerateTrialLicense failed: %v", err)
-	}
-	
-	if err := SaveLicense(key); err != nil {
-		t.Fatalf("SaveLicense failed: %v", err)
-	}
-	
-	// Now Pro should be enabled
-	currentLicense = nil // Clear cache
-	if !IsProEnabled() {
-		t.Error("Pro should be enabled after trial activation")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.tier == TierCommunity {
+				os.Unsetenv("TITO_LICENSE_KEY")
+				os.Unsetenv("TITO_SKIP_LICENSE")
+			} else {
+				expiresAt := time.Now().Add(365 * 24 * time.Hour)
+				key := generateTestKey(tt.tier, "TestOrg", expiresAt)
+				os.Setenv("TITO_LICENSE_KEY", key)
+				defer os.Unsetenv("TITO_LICENSE_KEY")
+			}
+
+			cachedLicense = nil
+			result := IsPro()
+
+			if result != tt.expected {
+				t.Errorf("IsPro() = %v, expected %v", result, tt.expected)
+			}
+		})
 	}
 }
 
-func TestIsFeatureEnabled(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Initialize system
-	if err := InitLicenseSystem(); err != nil {
-		t.Fatalf("InitLicenseSystem failed: %v", err)
+func TestIsTeam(t *testing.T) {
+	tests := []struct {
+		name     string
+		tier     Tier
+		expected bool
+	}{
+		{"Community tier", TierCommunity, false},
+		{"Pro tier", TierPro, false},
+		{"Team tier", TierTeam, true},
+		{"Enterprise tier", TierEnterprise, true},
 	}
-	
-	// Load keypair
-	keyPairPath := filepath.Join(licenseDir, "test-keypair.pem")
-	privKey, _, err := LoadKeyPair(keyPairPath)
-	if err != nil {
-		t.Fatalf("LoadKeyPair failed: %v", err)
-	}
-	
-	// Generate license with specific features
-	opts := LicenseKeyOptions{
-		Tier:      TierPro,
-		Features:  []string{"drift-detection", "llm-intelligence"},
-		User:      "test@example.com",
-		ValidDays: 30,
-	}
-	
-	key, err := GenerateLicenseKey(privKey, opts)
-	if err != nil {
-		t.Fatalf("GenerateLicenseKey failed: %v", err)
-	}
-	
-	if err := SaveLicense(key); err != nil {
-		t.Fatalf("SaveLicense failed: %v", err)
-	}
-	
-	currentLicense = nil // Clear cache
-	
-	// Test feature checks
-	if !IsFeatureEnabled("drift-detection") {
-		t.Error("drift-detection should be enabled")
-	}
-	
-	if !IsFeatureEnabled("llm-intelligence") {
-		t.Error("llm-intelligence should be enabled")
-	}
-	
-	if IsFeatureEnabled("nonexistent-feature") {
-		t.Error("nonexistent-feature should not be enabled")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.tier == TierCommunity {
+				os.Unsetenv("TITO_LICENSE_KEY")
+				os.Unsetenv("TITO_SKIP_LICENSE")
+			} else {
+				expiresAt := time.Now().Add(365 * 24 * time.Hour)
+				key := generateTestKey(tt.tier, "TestOrg", expiresAt)
+				os.Setenv("TITO_LICENSE_KEY", key)
+				defer os.Unsetenv("TITO_LICENSE_KEY")
+			}
+
+			cachedLicense = nil
+			result := IsTeam()
+
+			if result != tt.expected {
+				t.Errorf("IsTeam() = %v, expected %v", result, tt.expected)
+			}
+		})
 	}
 }
 
-func TestEncodeDecode(t *testing.T) {
-	originalKey := "test-license-key-12345"
-	
-	encoded := EncodeLicenseKey(originalKey)
-	decoded, err := DecodeLicenseKey(encoded)
-	
-	if err != nil {
-		t.Fatalf("DecodeLicenseKey failed: %v", err)
+func TestIsEnterprise(t *testing.T) {
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+
+	// Test Enterprise tier
+	key := generateTestKey(TierEnterprise, "TestOrg", expiresAt)
+	os.Setenv("TITO_LICENSE_KEY", key)
+	defer os.Unsetenv("TITO_LICENSE_KEY")
+	cachedLicense = nil
+
+	if !IsEnterprise() {
+		t.Error("IsEnterprise() should return true for enterprise tier")
 	}
-	
-	if decoded != originalKey {
-		t.Errorf("Decoded key doesn't match original: %s != %s", decoded, originalKey)
+
+	// Test Pro tier (should be false)
+	key = generateTestKey(TierPro, "TestOrg", expiresAt)
+	os.Setenv("TITO_LICENSE_KEY", key)
+	cachedLicense = nil
+
+	if IsEnterprise() {
+		t.Error("IsEnterprise() should return false for pro tier")
+	}
+
+	// Test Team tier (should be false)
+	key = generateTestKey(TierTeam, "TestOrg", expiresAt)
+	os.Setenv("TITO_LICENSE_KEY", key)
+	cachedLicense = nil
+
+	if IsEnterprise() {
+		t.Error("IsEnterprise() should return false for team tier")
 	}
 }
 
-func TestCommunityByDefault(t *testing.T) {
-	setupTestEnv(t)
-	
-	// Don't create any license file
-	// Community tier should be active by default
-	license, err := GetCurrentLicense()
-	if err != nil {
-		t.Fatalf("GetCurrentLicense failed: %v", err)
+func TestGetLicenseInfo(t *testing.T) {
+	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+	key := generateTestKey(TierPro, "TestOrg", expiresAt)
+
+	os.Setenv("TITO_LICENSE_KEY", key)
+	defer os.Unsetenv("TITO_LICENSE_KEY")
+	cachedLicense = nil
+
+	info := GetLicenseInfo()
+	if info == "" {
+		t.Error("GetLicenseInfo() returned empty string")
 	}
-	
-	if license.Tier != TierCommunity {
-		t.Errorf("Expected Community tier by default, got %s", license.Tier)
-	}
-	
-	if IsProEnabled() {
-		t.Error("Pro should not be enabled by default")
+
+	if !containsString(info, "Pro") || !containsString(info, "TestOrg") {
+		t.Errorf("GetLicenseInfo() = %s, expected to contain Pro and TestOrg", info)
 	}
 }
 
-// Cleanup
-func TestMain(m *testing.M) {
-	code := m.Run()
-	os.Exit(code)
+func TestGetTier(t *testing.T) {
+	os.Unsetenv("TITO_LICENSE_KEY")
+	os.Unsetenv("TITO_SKIP_LICENSE")
+	cachedLicense = nil
+
+	if GetTier() != TierCommunity {
+		t.Errorf("GetTier() should return Community when no license, got %s", GetTier())
+	}
+
+	expiresAt := time.Now().Add(365 * 24 * time.Hour)
+	key := generateTestKey(TierEnterprise, "TestOrg", expiresAt)
+	os.Setenv("TITO_LICENSE_KEY", key)
+	defer os.Unsetenv("TITO_LICENSE_KEY")
+	cachedLicense = nil
+
+	if GetTier() != TierEnterprise {
+		t.Errorf("GetTier() should return Enterprise, got %s", GetTier())
+	}
+}
+
+// Helper function
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

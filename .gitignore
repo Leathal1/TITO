@@ -40,8 +40,10 @@ coverage.out
 coverage.html
 work/
 
-# License server (separate repo: github.com/Leathal1/tito-license-server)
-license-server/
+# License server - ignore build artifacts and sensitive data
+license-server/keys/
+license-server/licenses.db
+license-server/license-server
 threat-model*.html
 *.html
 !examples/*.html

@@ -1,378 +1,485 @@
 package license
 
 import (
-	"crypto/rsa"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
-// Tier represents the license tier level
+// Tier represents the license tier
 type Tier string
 
 const (
-	TierCommunity  Tier = "community"
+	TierCommunity  Tier = "community" // Alias for free
+	TierFree       Tier = "free"       // Legacy alias for community
 	TierPro        Tier = "pro"
 	TierTeam       Tier = "team"
 	TierEnterprise Tier = "enterprise"
 )
 
+// Embedded Ed25519 public key (base64-encoded).
+// This is the ONLY key needed for verification. The private key lives on the license server.
+const publicKeyB64 = "d2wAw6D4GNZz9cSW2rOLGlq0i9pt37fP/EwqfpafKIs="
+
 // License represents a TITO license
 type License struct {
 	Key       string    `json:"key"`
 	Tier      Tier      `json:"tier"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	Features  []string  `json:"features"`
-	User      string    `json:"user,omitempty"`
-	OrgID     string    `json:"orgId,omitempty"`
-	IssuedAt  time.Time `json:"issuedAt"`
-	IsTrial   bool      `json:"isTrial"`
+	ExpiresAt time.Time `json:"expires_at"`
+	OrgName   string    `json:"org_name"`
 }
 
-// Claims represents JWT claims for license validation
-type Claims struct {
-	Tier      string   `json:"tier"`
-	Features  []string `json:"features"`
-	User      string   `json:"user,omitempty"`
-	OrgID     string   `json:"orgId,omitempty"`
-	IsTrial   bool     `json:"trial,omitempty"`
-	jwt.RegisteredClaims
-}
+// Global license cache
+var cachedLicense *License
 
-var (
-	// Global current license (loaded on first check)
-	currentLicense *License
-	
-	// Embedded public key for offline validation (PEM format)
-	// In production, this would be embedded at build time
-	// For now, we'll generate a keypair for testing
-	publicKey *rsa.PublicKey
-	
-	// License file path
-	licenseDir  = filepath.Join(os.Getenv("HOME"), ".tito")
-	licensePath = filepath.Join(licenseDir, "license.key")
-	
-	// Grace period for offline validation (7 days)
-	offlineGraceDays = 7
-)
+// publicKey is the parsed Ed25519 public key, initialized once.
+var publicKey ed25519.PublicKey
 
-// InitLicenseSystem initializes the license validation system
-func InitLicenseSystem() error {
-	// Ensure license directory exists
-	if err := os.MkdirAll(licenseDir, 0755); err != nil {
-		return fmt.Errorf("failed to create license directory: %w", err)
-	}
-	
-	// In production, publicKey would be embedded in the binary
-	// For testing, we'll load or generate a keypair
-	if publicKey == nil {
-		keyPairPath := filepath.Join(licenseDir, "test-keypair.pem")
-		if _, err := os.Stat(keyPairPath); os.IsNotExist(err) {
-			// Generate test keypair
-			privKey, pubKey, err := GenerateKeyPair()
-			if err != nil {
-				return fmt.Errorf("failed to generate test keypair: %w", err)
-			}
-			publicKey = pubKey
-			
-			// Save private key for testing (server-side key generation)
-			if err := SaveKeyPair(privKey, pubKey, keyPairPath); err != nil {
-				return fmt.Errorf("failed to save test keypair: %w", err)
-			}
-		} else {
-			// Load existing keypair
-			_, pubKey, err := LoadKeyPair(keyPairPath)
-			if err != nil {
-				return fmt.Errorf("failed to load test keypair: %w", err)
-			}
-			publicKey = pubKey
-		}
-	}
-	
-	return nil
-}
-
-// ValidateLicense validates a license key and returns the license details
-func ValidateLicense(key string) (*License, error) {
-	if key == "" {
-		return nil, fmt.Errorf("empty license key")
-	}
-	
-	// Ensure license system is initialized
-	if err := InitLicenseSystem(); err != nil {
-		return nil, err
-	}
-	
-	// Parse JWT token
-	token, err := jwt.ParseWithClaims(key, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return publicKey, nil
-	})
-	
+func init() {
+	raw, err := base64.StdEncoding.DecodeString(publicKeyB64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid license key: %w", err)
+		// This should never happen with a valid embedded key
+		panic("license: invalid embedded public key: " + err.Error())
 	}
-	
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		return nil, fmt.Errorf("invalid license claims")
-	}
-	
-	// Check expiration
-	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
-		// Check if within offline grace period
-		gracePeriod := time.Now().Add(-time.Duration(offlineGraceDays) * 24 * time.Hour)
-		if claims.ExpiresAt.Time.Before(gracePeriod) {
-			return nil, fmt.Errorf("license expired on %s", claims.ExpiresAt.Time.Format("2006-01-02"))
-		}
-		// Within grace period - allow but warn
-		fmt.Fprintf(os.Stderr, "Warning: License expired on %s (grace period active)\n", 
-			claims.ExpiresAt.Time.Format("2006-01-02"))
-	}
-	
-	// Build license object
-	license := &License{
-		Key:       key,
-		Tier:      Tier(claims.Tier),
-		Features:  claims.Features,
-		User:      claims.User,
-		OrgID:     claims.OrgID,
-		IsTrial:   claims.IsTrial,
-		IssuedAt:  claims.IssuedAt.Time,
-	}
-	
-	if claims.ExpiresAt != nil {
-		license.ExpiresAt = claims.ExpiresAt.Time
-	}
-	
-	return license, nil
+	publicKey = ed25519.PublicKey(raw)
 }
 
-// GetCurrentLicense reads and validates the current license from ~/.tito/license.key
-func GetCurrentLicense() (*License, error) {
+// ResetCache clears the cached license (for testing)
+func ResetCache() {
+	cachedLicense = nil
+}
+
+// SetPublicKeyForTesting overrides the embedded public key (for test use only).
+func SetPublicKeyForTesting(pub ed25519.PublicKey) {
+	publicKey = pub
+}
+
+// CheckLicense checks for a valid license from env var or config file
+func CheckLicense() (*License, error) {
 	// Return cached license if available
-	if currentLicense != nil {
-		// Re-validate to check expiration
-		validated, err := ValidateLicense(currentLicense.Key)
-		if err != nil {
-			// License became invalid - clear cache
-			currentLicense = nil
-			return nil, err
+	if cachedLicense != nil {
+		return cachedLicense, nil
+	}
+
+	// Check for skip flag (for testing/development)
+	if os.Getenv("TITO_SKIP_LICENSE") == "1" {
+		cachedLicense = &License{
+			Key:       "dev",
+			Tier:      TierEnterprise,
+			ExpiresAt: time.Now().Add(365 * 24 * time.Hour),
+			OrgName:   "Development",
 		}
-		return validated, nil
+		return cachedLicense, nil
 	}
-	
-	// Ensure license system is initialized
-	if err := InitLicenseSystem(); err != nil {
-		return nil, err
+
+	// 1. Check environment variable
+	if key := os.Getenv("TITO_LICENSE_KEY"); key != "" {
+		// Handle trial license
+		if key == "trial" {
+			license, err := checkTrialLicense()
+			if err != nil {
+				return nil, fmt.Errorf("trial license error: %w", err)
+			}
+			cachedLicense = license
+			return license, nil
+		}
+
+		license, err := ValidateLicenseKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid TITO_LICENSE_KEY: %w", err)
+		}
+		cachedLicense = license
+		return license, nil
 	}
-	
-	// Check if license file exists
-	if _, err := os.Stat(licensePath); os.IsNotExist(err) {
-		// No license file - return Community tier
-		return &License{
-			Tier:     TierCommunity,
-			Features: []string{},
-		}, nil
+
+	// 2. Check config file
+	configPath := getLicenseConfigPath()
+	if data, err := os.ReadFile(configPath); err == nil {
+		var license License
+		if err := json.Unmarshal(data, &license); err != nil {
+			return nil, fmt.Errorf("failed to parse license config: %w", err)
+		}
+
+		// Handle trial license
+		if license.Key == "trial" {
+			trialLicense, err := checkTrialLicense()
+			if err != nil {
+				return nil, fmt.Errorf("trial license error: %w", err)
+			}
+			cachedLicense = trialLicense
+			return trialLicense, nil
+		}
+
+		// Validate the license from config
+		validatedLicense, err := ValidateLicenseKey(license.Key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid license in config: %w", err)
+		}
+
+		cachedLicense = validatedLicense
+		return validatedLicense, nil
 	}
-	
-	// Read license key from file
-	keyBytes, err := os.ReadFile(licensePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read license file: %w", err)
+
+	// 3. No license found - return community tier
+	cachedLicense = &License{
+		Key:       "",
+		Tier:      TierCommunity,
+		ExpiresAt: time.Time{}, // Never expires for free tier
+		OrgName:   "",
 	}
-	
-	key := string(keyBytes)
-	
-	// Validate and cache
-	license, err := ValidateLicense(key)
-	if err != nil {
-		return nil, err
-	}
-	
-	currentLicense = license
-	return license, nil
+	return cachedLicense, nil
 }
 
-// SaveLicense saves a license key to ~/.tito/license.key
-func SaveLicense(key string) error {
-	// Validate first
-	_, err := ValidateLicense(key)
-	if err != nil {
-		return fmt.Errorf("cannot save invalid license: %w", err)
-	}
-	
-	// Ensure directory exists
-	if err := os.MkdirAll(licenseDir, 0755); err != nil {
-		return fmt.Errorf("failed to create license directory: %w", err)
-	}
-	
-	// Write license key
-	if err := os.WriteFile(licensePath, []byte(key), 0600); err != nil {
-		return fmt.Errorf("failed to write license file: %w", err)
-	}
-	
-	// Clear cache to force reload
-	currentLicense = nil
-	
-	return nil
-}
-
-// GenerateTrialLicense generates a 14-day Pro trial license
-func GenerateTrialLicense(user string) (string, error) {
-	// Ensure license system is initialized
-	if err := InitLicenseSystem(); err != nil {
-		return "", err
-	}
-	
-	// Load private key for signing (testing only - production would be server-side)
-	keyPairPath := filepath.Join(licenseDir, "test-keypair.pem")
-	privateKey, _, err := LoadKeyPair(keyPairPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to load signing key: %w", err)
-	}
-	
-	now := time.Now()
-	expiresAt := now.Add(14 * 24 * time.Hour)
-	
-	claims := Claims{
-		Tier:     string(TierPro),
-		Features: []string{"drift-detection", "llm-intelligence", "exploitability-scoring"},
-		User:     user,
-		IsTrial:  true,
-		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			Subject:   user,
-		},
-	}
-	
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	licenseKey, err := token.SignedString(privateKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign license: %w", err)
-	}
-	
-	return licenseKey, nil
-}
-
-// IsProEnabled checks if the current license is Pro tier or higher
-func IsProEnabled() bool {
-	license, err := GetCurrentLicense()
+// IsPro returns true if the license is Pro, Team, or Enterprise tier
+func IsPro() bool {
+	license, err := CheckLicense()
 	if err != nil {
 		return false
 	}
-	
-	return license.Tier == TierPro || 
-	       license.Tier == TierTeam || 
-	       license.Tier == TierEnterprise
+
+	// Check expiration
+	if !license.ExpiresAt.IsZero() && license.ExpiresAt.Before(time.Now()) {
+		return false
+	}
+
+	return license.Tier == TierPro || license.Tier == TierTeam || license.Tier == TierEnterprise
 }
 
-// IsTeamEnabled checks if the current license is Team tier or higher
-func IsTeamEnabled() bool {
-	license, err := GetCurrentLicense()
+// IsTeam returns true if the license is Team or Enterprise tier
+func IsTeam() bool {
+	license, err := CheckLicense()
 	if err != nil {
 		return false
 	}
-	
-	return license.Tier == TierTeam || 
-	       license.Tier == TierEnterprise
+
+	// Check expiration
+	if !license.ExpiresAt.IsZero() && license.ExpiresAt.Before(time.Now()) {
+		return false
+	}
+
+	return license.Tier == TierTeam || license.Tier == TierEnterprise
 }
 
-// IsEnterpriseEnabled checks if the current license is Enterprise tier
-func IsEnterpriseEnabled() bool {
-	license, err := GetCurrentLicense()
+// IsEnterprise returns true if the license is Enterprise tier
+func IsEnterprise() bool {
+	license, err := CheckLicense()
 	if err != nil {
 		return false
 	}
-	
+
+	// Check expiration
+	if !license.ExpiresAt.IsZero() && license.ExpiresAt.Before(time.Now()) {
+		return false
+	}
+
 	return license.Tier == TierEnterprise
 }
 
-// IsFeatureEnabled checks if a specific feature is enabled
-func IsFeatureEnabled(feature string) bool {
-	license, err := GetCurrentLicense()
-	if err != nil {
-		return false
+// ValidateLicenseKey validates a license key and returns the license.
+// Key format: tito_{tier}_{orgname}_{expiry}_{ed25519_signature_base64url}
+func ValidateLicenseKey(key string) (*License, error) {
+	if key == "" {
+		return nil, fmt.Errorf("empty license key")
 	}
-	
-	for _, f := range license.Features {
-		if f == feature {
-			return true
+
+	// Split into at most 5 parts: prefix, tier, orgname, expiry, signature
+	// The signature may contain underscores in base64url so we split carefully.
+	parts := strings.SplitN(key, "_", 5)
+	if len(parts) != 5 || parts[0] != "tito" {
+		return nil, fmt.Errorf("invalid license key format")
+	}
+
+	tier := Tier(parts[1])
+	// Validate tier (support all 4 tiers, plus legacy "free" as community)
+	if tier != TierCommunity && tier != TierFree && tier != TierPro && tier != TierTeam && tier != TierEnterprise {
+		return nil, fmt.Errorf("invalid license tier: %s", tier)
+	}
+
+	// Normalize free -> community
+	if tier == TierFree {
+		tier = TierCommunity
+	}
+
+	orgName := parts[2]
+	expiryStr := parts[3]
+	signatureB64 := parts[4]
+
+	// Parse expiry date (YYYYMMDD format)
+	expiresAt, err := time.Parse("20060102", expiryStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid expiry date: %w", err)
+	}
+
+	// The signed payload is everything before the signature
+	payload := fmt.Sprintf("tito_%s_%s_%s", tier, orgName, expiryStr)
+
+	// Decode the base64url signature
+	sigBytes, err := base64.RawURLEncoding.DecodeString(signatureB64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signature encoding: %w", err)
+	}
+
+	// Verify Ed25519 signature
+	if !ed25519.Verify(publicKey, []byte(payload), sigBytes) {
+		return nil, fmt.Errorf("invalid license signature")
+	}
+
+	// Check if expired
+	if expiresAt.Before(time.Now()) {
+		return nil, fmt.Errorf("license expired on %s", expiresAt.Format("2006-01-02"))
+	}
+
+	return &License{
+		Key:       key,
+		Tier:      tier,
+		ExpiresAt: expiresAt,
+		OrgName:   orgName,
+	}, nil
+}
+
+// GetTier returns the current license tier
+func GetTier() Tier {
+	license, err := CheckLicense()
+	if err != nil {
+		return TierCommunity
+	}
+	return license.Tier
+}
+
+// GetLicenseInfo returns a human-readable license info string
+func GetLicenseInfo() string {
+	license, err := CheckLicense()
+	if err != nil {
+		return "TITO Community (unlicensed)"
+	}
+
+	if license.Tier == TierCommunity || license.Tier == TierFree {
+		if license.Key == "trial-expired" {
+			return "TITO Community (trial expired)"
+		}
+		return "TITO Community"
+	}
+
+	// Trial license
+	if license.Key == "trial" {
+		daysLeft := TrialDaysRemaining()
+		if daysLeft >= 0 {
+			return fmt.Sprintf("TITO Pro (trial - %d days remaining)", daysLeft)
+		}
+		return "TITO Pro (trial)"
+	}
+
+	info := fmt.Sprintf("TITO %s", strings.ToTitle(string(license.Tier[:1]))+string(license.Tier[1:]))
+	if license.OrgName != "" {
+		info += fmt.Sprintf(" (%s)", license.OrgName)
+	}
+
+	if !license.ExpiresAt.IsZero() {
+		daysLeft := int(time.Until(license.ExpiresAt).Hours() / 24)
+		if daysLeft > 0 {
+			info += fmt.Sprintf(" - %d days remaining", daysLeft)
+		} else {
+			info += " - EXPIRED"
 		}
 	}
-	
-	return false
+
+	return info
 }
+
+// SaveLicense saves a license key to the config file
+// For trial licenses, pass "trial" as the key
+func SaveLicense(license *License) error {
+	configPath := getLicenseConfigPath()
+
+	// Create config directory if it doesn't exist
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Marshal license to JSON
+	data, err := json.MarshalIndent(license, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal license: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write license config: %w", err)
+	}
+
+	// Clear cache to force reload
+	cachedLicense = nil
+
+	return nil
+}
+
+// --- Trial license support ---
+
+// TrialState represents the persisted trial state
+type TrialState struct {
+	StartedAt time.Time `json:"started_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+const trialDuration = 14 * 24 * time.Hour
+
+// getTrialStatePath returns the path to the trial state file
+func getTrialStatePath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "/tmp/tito-trial.json"
+	}
+	return filepath.Join(homeDir, ".config", "tito", "trial.json")
+}
+
+// checkTrialLicense checks or initializes a trial license
+func checkTrialLicense() (*License, error) {
+	trialPath := getTrialStatePath()
+
+	var state TrialState
+
+	data, err := os.ReadFile(trialPath)
+	if err != nil {
+		// No trial file — create one
+		now := time.Now()
+		state = TrialState{
+			StartedAt: now,
+			ExpiresAt: now.Add(trialDuration),
+		}
+
+		// Ensure directory exists
+		if err := os.MkdirAll(filepath.Dir(trialPath), 0755); err != nil {
+			return nil, fmt.Errorf("failed to create config directory: %w", err)
+		}
+
+		stateJSON, err := json.MarshalIndent(state, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal trial state: %w", err)
+		}
+		if err := os.WriteFile(trialPath, stateJSON, 0600); err != nil {
+			return nil, fmt.Errorf("failed to write trial state: %w", err)
+		}
+
+		fmt.Println("🎉 Trial activated! You have 14 days of TITO Pro features.")
+		fmt.Printf("   Trial expires: %s\n", state.ExpiresAt.Format("2006-01-02"))
+		fmt.Println()
+	} else {
+		if err := json.Unmarshal(data, &state); err != nil {
+			return nil, fmt.Errorf("failed to parse trial state: %w", err)
+		}
+	}
+
+	// Check if trial is expired
+	if time.Now().After(state.ExpiresAt) {
+		fmt.Println("⏰ Trial expired. Falling back to TITO Community.")
+		fmt.Println("   Upgrade to Pro to keep premium features: https://tito.security/pricing")
+		fmt.Println()
+		return &License{
+			Key:       "trial-expired",
+			Tier:      TierCommunity,
+			ExpiresAt: time.Time{},
+			OrgName:   "",
+		}, nil
+	}
+
+	return &License{
+		Key:       "trial",
+		Tier:      TierPro,
+		ExpiresAt: state.ExpiresAt,
+		OrgName:   "Trial",
+	}, nil
+}
+
+// TrialDaysRemaining returns the number of days remaining in the trial,
+// or -1 if no trial is active
+func TrialDaysRemaining() int {
+	trialPath := getTrialStatePath()
+	data, err := os.ReadFile(trialPath)
+	if err != nil {
+		return -1
+	}
+
+	var state TrialState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return -1
+	}
+
+	remaining := time.Until(state.ExpiresAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Hours() / 24)
+}
+
+// Helper functions
 
 // RequireProOrUpgrade checks if Pro is enabled, otherwise prints upgrade message and returns false
 func RequireProOrUpgrade(featureName string) bool {
-	if IsProEnabled() {
+	if IsPro() {
 		return true
 	}
-	
+
 	fmt.Println()
 	fmt.Printf("⭐ %s is a TITO Pro feature\n", featureName)
 	fmt.Println()
 	fmt.Println("Upgrade to Pro for:")
-	fmt.Println("  • LLM-powered threat intelligence")
-	fmt.Println("  • Exploitability prediction")
-	fmt.Println("  • Continuous drift detection")
-	fmt.Println("  • Auto-remediation advisor")
+	fmt.Println("  • Drift detection")
+	fmt.Println("  • 3D visualization")
+	fmt.Println("  • Full attack paths")
+	fmt.Println("  • Scan result saving")
+	fmt.Println("  • PR diff reports")
 	fmt.Println()
 	fmt.Println("Learn more: https://tito.security/pro")
 	fmt.Println()
 	fmt.Println("Try it free:")
 	fmt.Println("  tito activate --trial    # 14-day Pro trial, no credit card")
 	fmt.Println()
-	
+
 	return false
 }
 
 // PrintLicenseStatus prints the current license status in a user-friendly format
 func PrintLicenseStatus() error {
-	license, err := GetCurrentLicense()
+	license, err := CheckLicense()
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Println("📄 TITO License Status")
 	fmt.Println("═════════════════════════════════════════")
 	fmt.Println()
-	
+
 	// Tier
 	tierEmoji := map[Tier]string{
 		TierCommunity:  "🆓",
+		TierFree:       "🆓",
 		TierPro:        "⭐",
 		TierTeam:       "👥",
 		TierEnterprise: "🏢",
 	}
-	
+
 	emoji := tierEmoji[license.Tier]
-	fmt.Printf("Tier:         %s %s", emoji, license.Tier)
-	if license.IsTrial {
+	tierDisplay := license.Tier
+	if tierDisplay == TierCommunity || tierDisplay == TierFree {
+		tierDisplay = "Community"
+	}
+	fmt.Printf("Tier:         %s %s", emoji, strings.ToTitle(string(tierDisplay[:1]))+string(tierDisplay[1:]))
+	if license.Key == "trial" {
 		fmt.Print(" (Trial)")
 	}
 	fmt.Println()
-	
-	// User
-	if license.User != "" {
-		fmt.Printf("User:         %s\n", license.User)
-	}
-	
+
 	// Organization
-	if license.OrgID != "" {
-		fmt.Printf("Organization: %s\n", license.OrgID)
+	if license.OrgName != "" {
+		fmt.Printf("Organization: %s\n", license.OrgName)
 	}
-	
+
 	// Expiration
 	if !license.ExpiresAt.IsZero() {
 		daysRemaining := int(time.Until(license.ExpiresAt).Hours() / 24)
@@ -382,60 +489,37 @@ func PrintLicenseStatus() error {
 		} else if daysRemaining <= 7 {
 			status = "Expiring soon"
 		}
-		
-		fmt.Printf("Expires:      %s (%d days, %s)\n", 
-			license.ExpiresAt.Format("2006-01-02"), 
-			daysRemaining, 
+
+		fmt.Printf("Expires:      %s (%d days, %s)\n",
+			license.ExpiresAt.Format("2006-01-02"),
+			daysRemaining,
 			status)
 	}
-	
-	// Features
-	if len(license.Features) > 0 {
-		fmt.Println()
-		fmt.Println("Enabled Features:")
-		for _, feature := range license.Features {
-			fmt.Printf("  ✓ %s\n", feature)
-		}
-	}
-	
+
 	// Upgrade path
-	if license.Tier == TierCommunity {
+	if license.Tier == TierCommunity || license.Tier == TierFree {
 		fmt.Println()
 		fmt.Println("🚀 Upgrade to Pro:")
 		fmt.Println("   tito activate --trial           # Start 14-day free trial")
 		fmt.Println("   https://tito.security/pro       # Purchase license")
 	}
-	
+
 	fmt.Println()
-	
+
 	return nil
 }
 
-// EncodeLicenseKey encodes a license key to base64 for easier copying
-func EncodeLicenseKey(key string) string {
-	return base64.StdEncoding.EncodeToString([]byte(key))
-}
+func getLicenseConfigPath() string {
+	// Check XDG_CONFIG_HOME first
+	if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
+		return filepath.Join(configHome, "tito", "license.json")
+	}
 
-// DecodeLicenseKey decodes a base64-encoded license key
-func DecodeLicenseKey(encodedKey string) (string, error) {
-	decoded, err := base64.StdEncoding.DecodeString(encodedKey)
+	// Fall back to ~/.config/tito/license.json
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		// Try as raw key
-		return encodedKey, nil
+		return "/tmp/tito-license.json" // Last resort
 	}
-	return string(decoded), nil
-}
 
-// MarshalLicense marshals a license to JSON for storage/transmission
-func MarshalLicense(license *License) ([]byte, error) {
-	return json.MarshalIndent(license, "", "  ")
-}
-
-// UnmarshalLicense unmarshals a license from JSON
-func UnmarshalLicense(data []byte) (*License, error) {
-	var license License
-	if err := json.Unmarshal(data, &license); err != nil {
-		return nil, err
-	}
-	return &license, nil
+	return filepath.Join(homeDir, ".config", "tito", "license.json")
 }
