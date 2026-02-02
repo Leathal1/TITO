@@ -44,4 +44,5 @@ work/
 license-server/
 threat-model*.html
 *.html
+!examples/*.html
 report.md
