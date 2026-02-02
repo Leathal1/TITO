@@ -1,0 +1,49 @@
+# TITO Threat Model — GitLab CI Template
+# Include this in your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/Leathal1/TITO/main/.gitlab/tito-scan.gitlab-ci.yml'
+#
+# Or copy this file into your repo.
+
+.tito-base:
+  image: golang:1.22
+  variables:
+    TITO_FAIL_ON: "never"
+    TITO_OUTPUT: "threat-model.md"
+  before_script:
+    - go install github.com/Leathal1/TITO/cmd/tito@latest
+    - export PATH="$PATH:$HOME/go/bin"
+    - tito version
+  artifacts:
+    paths:
+      - "*.md"
+      - "*.html"
+      - "*.json"
+      - "*.tito.json"
+    expire_in: 30 days
+    when: always
+
+tito-scan:
+  extends: .tito-base
+  stage: test
+  script:
+    - |
+      ARGS="--repo . --output ${TITO_OUTPUT}"
+      [ "${TITO_MAESTRO:-false}" = "true" ] && ARGS="$ARGS --maestro"
+      [ "${TITO_MITRE:-false}" = "true" ] && ARGS="$ARGS --mitre"
+      [ "${TITO_SEMGREP:-false}" = "true" ] && {
+        pip install semgrep --quiet
+        ARGS="$ARGS --semgrep"
+      }
+      [ "${TITO_ATTACK_PATHS:-true}" = "true" ] && ARGS="$ARGS --attack-paths"
+      tito scan $ARGS --fail-on "${TITO_FAIL_ON}"
+    - |
+      echo ""
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "🔒 TITO Pro: Compliance (PCI/HIPAA/SOC2), LLM-powered analysis"
+      echo "   Coming soon → https://github.com/Leathal1/TITO"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

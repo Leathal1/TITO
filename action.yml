@@ -1,15 +1,31 @@
 name: 'TITO Threat Model'
-description: 'Automated threat modeling with STRIDE-LM, MAESTRO, MITRE ATT&CK, and attack path analysis'
+description: 'Automated threat modeling with STRIDE-LM, MAESTRO, MITRE ATT&CK, Semgrep SAST, and attack path analysis. Shift security left — threat model every PR.'
 author: 'Leathal1'
+
 branding:
   icon: 'shield'
   color: 'red'
 
 inputs:
+  # ── Core ──
   repo:
-    description: 'Repository path or URL to scan (defaults to current workspace)'
+    description: 'Repository path to scan (defaults to workspace)'
     required: false
     default: '.'
+  mode:
+    description: 'Scan mode: full, quick, or diff'
+    required: false
+    default: 'full'
+  output:
+    description: 'Output file path'
+    required: false
+    default: 'threat-model.md'
+  output-format:
+    description: 'Output format: markdown, html, json, sarif'
+    required: false
+    default: 'markdown'
+
+  # ── Analysis Modules ──
   maestro:
     description: 'Enable MAESTRO agentic AI analysis'
     required: false
@@ -26,43 +42,101 @@ inputs:
     description: 'Enable attack path analysis'
     required: false
     default: 'true'
-  output:
-    description: 'Output file path'
-    required: false
-    default: 'threat-model.html'
-  fail-on:
-    description: 'Fail the action on threat severity (critical, high, any, never)'
-    required: false
-    default: 'never'
-  diff-base:
-    description: 'Base branch for threat diffing (enables diff mode)'
-    required: false
-    default: ''
-  diff-head:
-    description: 'Head branch for threat diffing'
-    required: false
-    default: ''
   three-d:
     description: 'Generate 3D interactive visualization'
     required: false
     default: 'false'
+
+  # ── Diff Mode ──
+  diff-base:
+    description: 'Base branch/ref for threat diffing (enables diff mode)'
+    required: false
+    default: ''
+  diff-head:
+    description: 'Head branch/ref for threat diffing'
+    required: false
+    default: ''
+
+  # ── Policy ──
+  fail-on:
+    description: 'Fail the action on severity: critical, high, medium, any, never'
+    required: false
+    default: 'never'
+  config:
+    description: 'Path to TITO config file (tito.yaml)'
+    required: false
+    default: ''
+  rules:
+    description: 'Path to custom rules directory'
+    required: false
+    default: ''
+
+  # ── Output Control ──
+  comment-on-pr:
+    description: 'Post threat model as PR comment'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Upload report as GitHub artifact'
+    required: false
+    default: 'true'
+  sarif-upload:
+    description: 'Upload SARIF to GitHub Security tab'
+    required: false
+    default: 'false'
+  badge:
+    description: 'Generate security badge'
+    required: false
+    default: 'false'
+
+  # ── Version ──
+  version:
+    description: 'TITO version to install (e.g., v2.1.0, latest)'
+    required: false
+    default: 'latest'
+
+  # ── Pro (Coming Soon) ──
+  # compliance:
+  #   description: '[Pro] Compliance profiles: pci-dss-4, hipaa, soc2, nist-800-53'
+  #   required: false
+  # llm-provider:
+  #   description: '[Pro] LLM provider for AI-powered analysis: openai, anthropic, local'
+  #   required: false
+  # llm-model:
+  #   description: '[Pro] LLM model for deep analysis'
+  #   required: false
 
 outputs:
   threats-total:
     description: 'Total number of threats found'
     value: ${{ steps.parse.outputs.threats-total }}
   threats-critical:
-    description: 'Number of critical threats'
+    description: 'Number of critical severity threats'
     value: ${{ steps.parse.outputs.threats-critical }}
   threats-high:
-    description: 'Number of high threats'
+    description: 'Number of high severity threats'
     value: ${{ steps.parse.outputs.threats-high }}
+  threats-medium:
+    description: 'Number of medium severity threats'
+    value: ${{ steps.parse.outputs.threats-medium }}
+  threats-low:
+    description: 'Number of low severity threats'
+    value: ${{ steps.parse.outputs.threats-low }}
   attack-paths-count:
     description: 'Number of attack paths found'
     value: ${{ steps.parse.outputs.attack-paths-count }}
   report-path:
     description: 'Path to the generated report'
     value: ${{ steps.run.outputs.report-path }}
+  sarif-path:
+    description: 'Path to SARIF output (if generated)'
+    value: ${{ steps.run.outputs.sarif-path }}
+  badge-url:
+    description: 'Shield.io badge URL for threat status'
+    value: ${{ steps.badge.outputs.badge-url }}
+  exit-code:
+    description: 'TITO exit code (0=pass, 1=warnings, 2=fail)'
+    value: ${{ steps.run.outputs.exit-code }}
 
 runs:
   using: 'composite'
@@ -71,54 +145,129 @@ runs:
       id: install
       shell: bash
       run: |
-        TITO_VERSION="v2.1.0"
+        VERSION="${{ inputs.version }}"
         ARCH=$(uname -m)
         OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+
         if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
         if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
-        BINARY="tito-${OS}-${ARCH}"
-        echo "📦 Downloading TITO ${TITO_VERSION} for ${OS}/${ARCH}..."
-        curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${TITO_VERSION}/${BINARY}" -o /usr/local/bin/tito
-        chmod +x /usr/local/bin/tito
-        echo "✅ $(tito version | head -1)"
+
+        if [ "$VERSION" = "latest" ]; then
+          echo "📦 Installing TITO (latest) via go install..."
+          go install github.com/Leathal1/TITO/cmd/tito@latest 2>/dev/null || {
+            # Fallback: download from releases
+            echo "📦 Fetching latest release..."
+            LATEST=$(curl -fsSL https://api.github.com/repos/Leathal1/TITO/releases/latest | grep tag_name | cut -d '"' -f 4)
+            VERSION="${LATEST}"
+            BINARY="tito_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+            curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/
+          }
+        else
+          BINARY="tito_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+          echo "📦 Downloading TITO ${VERSION}..."
+          curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/
+        fi
+
+        # Verify
+        if command -v tito &>/dev/null; then
+          echo "✅ $(tito version 2>/dev/null | head -1 || echo 'TITO installed')"
+        elif [ -f "$HOME/go/bin/tito" ]; then
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          echo "✅ TITO installed via go install"
+        else
+          echo "❌ TITO installation failed"
+          exit 1
+        fi
+
+    - name: Install Semgrep
+      if: inputs.semgrep == 'true'
+      shell: bash
+      run: |
+        pip install semgrep --quiet
+        echo "✅ Semgrep $(semgrep --version)"
 
     - name: Run TITO
       id: run
       shell: bash
       run: |
-        set -e
+        set -euo pipefail
+
+        # Determine output extension
+        OUTPUT="${{ inputs.output }}"
+        FORMAT="${{ inputs.output-format }}"
 
         if [ -n "${{ inputs.diff-base }}" ]; then
-          # ── Diff mode ──
+          # ═══ Diff Mode ═══
           HEAD="${{ inputs.diff-head }}"
           if [ -z "$HEAD" ]; then HEAD="HEAD"; fi
 
-          echo "🔍 Running threat diff: ${{ inputs.diff-base }} → ${HEAD}"
-          tito diff \
-            --repo "${{ inputs.repo }}" \
-            --base "${{ inputs.diff-base }}" \
-            --head "${HEAD}" \
-            --format markdown \
-            --output threat-diff.md \
-            --fail-on "${{ inputs.fail-on }}"
+          echo "🔍 TITO Threat Diff: ${{ inputs.diff-base }} → ${HEAD}"
+          echo ""
 
-          echo "report-path=threat-diff.md" >> "$GITHUB_OUTPUT"
+          ARGS="--repo ${{ inputs.repo }}"
+          ARGS="$ARGS --base ${{ inputs.diff-base }}"
+          ARGS="$ARGS --head ${HEAD}"
+          ARGS="$ARGS --format ${FORMAT}"
+          ARGS="$ARGS --output ${OUTPUT}"
+          ARGS="$ARGS --fail-on ${{ inputs.fail-on }}"
+
+          tito diff $ARGS && TITO_EXIT=0 || TITO_EXIT=$?
+          echo "report-path=${OUTPUT}" >> "$GITHUB_OUTPUT"
+
         else
-          # ── Scan mode ──
+          # ═══ Scan Mode ═══
+          echo "🛡️ TITO Threat Model Scan"
+          echo ""
+
           ARGS="--repo ${{ inputs.repo }}"
 
+          # Analysis modules
           if [ "${{ inputs.maestro }}" = "true" ]; then ARGS="$ARGS --maestro"; fi
           if [ "${{ inputs.mitre }}" = "true" ]; then ARGS="$ARGS --mitre"; fi
           if [ "${{ inputs.semgrep }}" = "true" ]; then ARGS="$ARGS --semgrep"; fi
           if [ "${{ inputs.attack-paths }}" = "true" ]; then ARGS="$ARGS --attack-paths"; fi
           if [ "${{ inputs.three-d }}" = "true" ]; then ARGS="$ARGS --3d"; fi
 
-          ARGS="$ARGS --output ${{ inputs.output }}"
+          # Config
+          if [ -n "${{ inputs.config }}" ]; then ARGS="$ARGS --config ${{ inputs.config }}"; fi
+          if [ -n "${{ inputs.rules }}" ]; then ARGS="$ARGS --rules ${{ inputs.rules }}"; fi
 
-          echo "🔍 Running threat scan..."
-          tito scan $ARGS
+          ARGS="$ARGS --output ${OUTPUT}"
 
-          echo "report-path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+          # Also generate JSON for parsing
+          tito scan $ARGS --json-output tito-results.json 2>/dev/null && TITO_EXIT=0 || {
+            TITO_EXIT=$?
+            # Retry without --json-output if flag not supported
+            if [ $TITO_EXIT -eq 2 ] && [ ! -f "tito-results.json" ]; then
+              tito scan $ARGS && TITO_EXIT=0 || TITO_EXIT=$?
+            fi
+          }
+
+          echo "report-path=${OUTPUT}" >> "$GITHUB_OUTPUT"
+
+          # Generate SARIF if requested
+          if [ "${{ inputs.sarif-upload }}" = "true" ] || [ "${FORMAT}" = "sarif" ]; then
+            if [ -f "tito-results.json" ]; then
+              tito convert --input tito-results.json --format sarif --output tito-results.sarif 2>/dev/null || true
+              echo "sarif-path=tito-results.sarif" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+        fi
+
+        echo "exit-code=${TITO_EXIT}" >> "$GITHUB_OUTPUT"
+
+        # ── Pro Tier Hint ──
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔒 Want compliance mapping (PCI DSS 4.0, HIPAA, SOC2)?"
+        echo "   LLM-powered deep analysis? Custom report branding?"
+        echo "   → TITO Pro — Coming Soon: https://github.com/Leathal1/TITO"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        # Apply fail policy
+        if [ "${{ inputs.fail-on }}" != "never" ] && [ "${TITO_EXIT}" -eq 2 ]; then
+          echo "::error::❌ TITO detected threats exceeding the '${{ inputs.fail-on }}' threshold"
+          exit 1
         fi
 
     - name: Parse Results
@@ -126,14 +275,154 @@ runs:
       shell: bash
       if: always()
       run: |
-        # Extract counts from the report if available
-        REPORT="${{ steps.run.outputs.report-path }}"
-        if [ -f "$REPORT" ]; then
-          echo "📊 Report generated: $REPORT"
+        # Try to parse structured JSON output
+        if [ -f "tito-results.json" ]; then
+          TOTAL=$(jq '.threats | length' tito-results.json 2>/dev/null || echo "0")
+          CRITICAL=$(jq '[.threats[] | select(.severity == "critical")] | length' tito-results.json 2>/dev/null || echo "0")
+          HIGH=$(jq '[.threats[] | select(.severity == "high")] | length' tito-results.json 2>/dev/null || echo "0")
+          MEDIUM=$(jq '[.threats[] | select(.severity == "medium")] | length' tito-results.json 2>/dev/null || echo "0")
+          LOW=$(jq '[.threats[] | select(.severity == "low")] | length' tito-results.json 2>/dev/null || echo "0")
+          PATHS=$(jq '.attack_paths | length' tito-results.json 2>/dev/null || echo "0")
+        else
+          # Fallback: parse from markdown report
+          REPORT="${{ steps.run.outputs.report-path }}"
+          if [ -f "$REPORT" ]; then
+            TOTAL=$(grep -c "^### Threat:" "$REPORT" 2>/dev/null || echo "0")
+            CRITICAL=$(grep -ci "critical" "$REPORT" 2>/dev/null || echo "0")
+            HIGH=$(grep -ci "severity.*high" "$REPORT" 2>/dev/null || echo "0")
+          fi
+          MEDIUM="0"
+          LOW="0"
+          PATHS="0"
         fi
 
-        # Set defaults (TITO can output JSON for machine parsing in future)
-        echo "threats-total=0" >> "$GITHUB_OUTPUT"
-        echo "threats-critical=0" >> "$GITHUB_OUTPUT"
-        echo "threats-high=0" >> "$GITHUB_OUTPUT"
-        echo "attack-paths-count=0" >> "$GITHUB_OUTPUT"
+        echo "threats-total=${TOTAL:-0}" >> "$GITHUB_OUTPUT"
+        echo "threats-critical=${CRITICAL:-0}" >> "$GITHUB_OUTPUT"
+        echo "threats-high=${HIGH:-0}" >> "$GITHUB_OUTPUT"
+        echo "threats-medium=${MEDIUM:-0}" >> "$GITHUB_OUTPUT"
+        echo "threats-low=${LOW:-0}" >> "$GITHUB_OUTPUT"
+        echo "attack-paths-count=${PATHS:-0}" >> "$GITHUB_OUTPUT"
+
+        echo "📊 Threats: ${TOTAL:-0} total (${CRITICAL:-0} critical, ${HIGH:-0} high, ${MEDIUM:-0} medium, ${LOW:-0} low)"
+        echo "🔗 Attack Paths: ${PATHS:-0}"
+
+    - name: Generate Badge
+      id: badge
+      shell: bash
+      if: inputs.badge == 'true' && always()
+      run: |
+        TOTAL="${{ steps.parse.outputs.threats-total }}"
+        CRITICAL="${{ steps.parse.outputs.threats-critical }}"
+
+        if [ "${CRITICAL}" -gt 0 ]; then
+          COLOR="critical"
+          STATUS="${TOTAL}%20threats%20(${CRITICAL}%20critical)"
+        elif [ "${TOTAL}" -gt 10 ]; then
+          COLOR="orange"
+          STATUS="${TOTAL}%20threats"
+        elif [ "${TOTAL}" -gt 0 ]; then
+          COLOR="yellow"
+          STATUS="${TOTAL}%20threats"
+        else
+          COLOR="brightgreen"
+          STATUS="clean"
+        fi
+
+        BADGE_URL="https://img.shields.io/badge/TITO-${STATUS}-${COLOR}?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyMnM4LTQgOC0xMFY1bC04LTMtOCAzdjdjMCA2IDggMTAgOCAxMHoiLz48L3N2Zz4=&style=flat-square"
+
+        echo "badge-url=${BADGE_URL}" >> "$GITHUB_OUTPUT"
+        echo "🏷️ Badge: ${BADGE_URL}"
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const reportPath = '${{ steps.run.outputs.report-path }}';
+          let report = '⚠️ TITO report was not generated';
+
+          if (fs.existsSync(reportPath)) {
+            report = fs.readFileSync(reportPath, 'utf8');
+            // Truncate if too long for PR comment (65536 char limit)
+            if (report.length > 60000) {
+              report = report.substring(0, 60000) + '\n\n... (truncated, see full report in artifacts)';
+            }
+          }
+
+          const total = '${{ steps.parse.outputs.threats-total }}';
+          const critical = '${{ steps.parse.outputs.threats-critical }}';
+          const high = '${{ steps.parse.outputs.threats-high }}';
+          const exitCode = '${{ steps.run.outputs.exit-code }}';
+
+          let verdict = '✅ **PASS**';
+          if (exitCode === '2') verdict = '❌ **FAIL** — Critical security regression';
+          else if (exitCode === '1') verdict = '⚠️ **WARN** — New threats detected';
+
+          const badge = '${{ steps.badge.outputs.badge-url }}' || '';
+          const badgeLine = badge ? `![TITO](${badge})\n\n` : '';
+
+          const body = `## 🛡️ TITO Threat Model Report
+
+          ${badgeLine}| Metric | Count |
+          |--------|-------|
+          | Total Threats | ${total} |
+          | Critical | ${critical} |
+          | High | ${high} |
+          | Verdict | ${verdict} |
+
+          <details>
+          <summary>📋 Full Report</summary>
+
+          ${report}
+
+          </details>
+
+          ---
+          > 🔒 **TITO Pro** — Compliance profiles (PCI DSS 4.0, HIPAA, SOC2), LLM-powered analysis, and more. [Coming soon →](https://github.com/Leathal1/TITO)
+
+          *Generated by [TITO](https://github.com/Leathal1/TITO) — Threat In, Threat Out*`;
+
+          // Find existing TITO comment
+          const { data: comments } = await github.rest.issues.listComments({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+
+          const existing = comments.find(c => c.body.includes('🛡️ TITO Threat Model Report'));
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              comment_id: existing.id,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+          }
+
+    - name: Upload SARIF
+      if: (inputs.sarif-upload == 'true') && steps.run.outputs.sarif-path != '' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.run.outputs.sarif-path }}
+        category: tito
+
+    - name: Upload Artifact
+      if: inputs.upload-artifact == 'true' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tito-threat-model
+        path: |
+          ${{ steps.run.outputs.report-path }}
+          tito-results.json
+          *.tito.json
+          *.sarif
+        retention-days: 30

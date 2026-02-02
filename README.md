@@ -2,9 +2,13 @@
 
 > **The threat modeler that thinks like an attacker.**
 
+[![CI](https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Leathal1/TITO?style=flat&color=blue)](https://github.com/Leathal1/TITO/releases)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Model](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TITO%20Threat%20Model-blue?style=flat&logo=github)](https://github.com/marketplace/actions/tito-threat-model)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat&logo=docker)](https://ghcr.io/leathal1/tito)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/stevenleath)
 
 Single binary. Point at a repo. Get **attack path analysis**, **3D threat visualization**, **STRIDE-LM + MAESTRO classification**, and **MITRE ATT&CK mappings** — all in one scan.
@@ -220,12 +224,29 @@ Key findings included hardcoded credentials, unauthenticated payment APIs, and a
 - PR threat diffing
 - Semgrep integration
 - Compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST 800-53, HIPAA)
+- SARIF output for GitHub Security tab
 
 ---
 
 ## CI/CD Integration
 
-### GitHub Actions
+TITO integrates with every major CI/CD platform. Pick the method that fits your workflow:
+
+### GitHub Actions — Marketplace Action
+
+The simplest integration. Add to any workflow:
+
+```yaml
+- uses: Leathal1/TITO@v2
+  with:
+    maestro: true
+    mitre: true
+    sarif-output: true
+    fail-on: critical
+```
+
+<details>
+<summary><b>Full workflow example with PR comments</b></summary>
 
 ```yaml
 name: TITO Threat Model
@@ -241,30 +262,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: Leathal1/TITO@v2
+        id: tito
         with:
-          go-version: '1.21'
-
-      - name: Install TITO
-        run: go install github.com/Leathal1/TITO/cmd/tito@latest
-
-      - name: Threat Model Diff
-        run: |
-          tito diff \
-            --repo . \
-            --base ${{ github.base_ref }} \
-            --head ${{ github.head_ref }} \
-            --format markdown \
-            --output threat-diff.md \
-            --fail-on critical
+          maestro: true
+          mitre: true
+          attack-paths: true
+          sarif-output: true
+          fail-on: critical
 
       - name: Comment on PR
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('threat-diff.md', 'utf8');
+            const total = '${{ steps.tito.outputs.threats-total }}';
+            const critical = '${{ steps.tito.outputs.threats-critical }}';
+            const high = '${{ steps.tito.outputs.threats-high }}';
+            const badge = '${{ steps.tito.outputs.badge-url }}';
+            const body = `## 🛡️ TITO Threat Model\n\n![badge](${badge})\n\n| Severity | Count |\n|---|---|\n| Critical | ${critical} |\n| High | ${high} |\n| **Total** | **${total}** |`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -272,28 +288,125 @@ jobs:
               body: body
             });
 
-      - name: Full Scan + 3D Visualization
-        run: |
-          tito scan \
-            --repo . \
-            --maestro \
-            --mitre \
-            --attack-paths \
-            --3d \
-            --output threat-model.html
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: threat-model
           path: threat-model.html
 ```
 
-Your threat model updates on every push. Living documentation.
+</details>
 
-### GitLab CI / Jenkins
+### GitHub Actions — Reusable Workflow
 
-See [docs/DIFF.md](docs/DIFF.md) for GitLab CI and Jenkins examples.
+Call from any repository without copying workflow files:
+
+```yaml
+jobs:
+  threat-model:
+    uses: Leathal1/TITO/.github/workflows/tito-reusable.yml@main
+    with:
+      maestro: true
+      mitre: true
+      sarif-output: true
+      fail-on: critical
+```
+
+### GitHub Actions — Docker (Fastest)
+
+Skip Go compilation entirely:
+
+```yaml
+- uses: Leathal1/TITO/.github/actions/docker@v2
+  with:
+    maestro: true
+    mitre: true
+```
+
+### GitHub Actions — PR Threat Diff
+
+Catch security regressions on every pull request:
+
+```yaml
+name: TITO PR Check
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  threat-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: Leathal1/TITO@v2
+        with:
+          diff-base: ${{ github.base_ref }}
+          diff-head: ${{ github.head_ref }}
+          fail-on: critical
+```
+
+### GitLab CI
+
+```yaml
+include:
+  - project: 'Leathal1/TITO'
+    file: '.gitlab/tito-scan.gitlab-ci.yml'
+    ref: main
+```
+
+See [GITLAB_CI.md](GITLAB_CI.md) for full documentation including MR diff templates.
+
+### Docker (Any CI)
+
+```bash
+docker run --rm -v "$(pwd):/workspace" ghcr.io/leathal1/tito:latest \
+  scan --repo /workspace --maestro --mitre --attack-paths --output /workspace/report.html
+```
+
+### Pre-commit Hook
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Leathal1/TITO
+    rev: v2.1.0
+    hooks:
+      - id: tito-scan
+```
+
+Or install manually: `cp scripts/pre-commit-tito.sh .git/hooks/pre-commit`
+
+See [INSTALL.md](INSTALL.md) for setup details.
+
+---
+
+## Badges
+
+Add a TITO threat model badge to your README:
+
+```markdown
+[![TITO Threat Model](https://img.shields.io/badge/TITO-threats%3A%200-brightgreen?style=flat)](https://github.com/Leathal1/TITO)
+```
+
+Generate a dynamic badge from scan results:
+
+```bash
+# After running a scan with --save
+./scripts/generate-badge.sh threatmodel.json
+```
+
+In GitHub Actions, the badge URL is available as the `badge-url` output:
+
+```yaml
+- uses: Leathal1/TITO@v2
+  id: tito
+  with:
+    maestro: true
+
+# Badge URL: ${{ steps.tito.outputs.badge-url }}
+```
 
 ---
 
@@ -304,8 +417,11 @@ git clone https://github.com/Leathal1/TITO.git
 cd TITO
 make build          # Build for current platform
 make test           # Run all tests
+make lint           # Run golangci-lint + go vet
 make cross-compile  # Build for all platforms
 make release        # Build + checksums
+make docker-build   # Build Docker image
+make help           # Show all targets
 ```
 
 ## Architecture
@@ -344,7 +460,7 @@ If TITO saves you time, consider buying me a coffee:
 
 ## Contributing
 
-PRs welcome. Run `make test` before submitting.
+PRs welcome. Run `make test && make lint` before submitting.
 
 ## License
 

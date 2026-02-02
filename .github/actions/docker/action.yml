@@ -1,0 +1,107 @@
+name: 'TITO Threat Model (Docker)'
+description: 'Fast threat modeling using pre-built TITO Docker image. No Go compilation needed.'
+author: 'Leathal1'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  repo:
+    description: 'Repository path to scan'
+    required: false
+    default: '.'
+  maestro:
+    description: 'Enable MAESTRO agentic AI analysis'
+    required: false
+    default: 'false'
+  mitre:
+    description: 'Enable MITRE ATT&CK mapping'
+    required: false
+    default: 'false'
+  semgrep:
+    description: 'Enable Semgrep SAST integration'
+    required: false
+    default: 'false'
+  attack-paths:
+    description: 'Enable attack path analysis'
+    required: false
+    default: 'true'
+  output:
+    description: 'Output file path'
+    required: false
+    default: 'threat-model.md'
+  fail-on:
+    description: 'Fail threshold: critical, high, medium, any, never'
+    required: false
+    default: 'never'
+  diff-base:
+    description: 'Base ref for diff mode'
+    required: false
+    default: ''
+  diff-head:
+    description: 'Head ref for diff mode'
+    required: false
+    default: ''
+
+outputs:
+  threats-total:
+    description: 'Total threats found'
+    value: ${{ steps.parse.outputs.threats-total }}
+  threats-critical:
+    description: 'Critical threats found'
+    value: ${{ steps.parse.outputs.threats-critical }}
+  report-path:
+    description: 'Report file path'
+    value: ${{ steps.run.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run TITO (Docker)
+      id: run
+      shell: bash
+      run: |
+        ARGS=""
+
+        if [ -n "${{ inputs.diff-base }}" ]; then
+          HEAD="${{ inputs.diff-head }}"
+          [ -z "$HEAD" ] && HEAD="HEAD"
+          ARGS="diff --repo /workspace --base ${{ inputs.diff-base }} --head $HEAD --format markdown --output /workspace/${{ inputs.output }} --fail-on ${{ inputs.fail-on }}"
+        else
+          ARGS="scan --repo /workspace"
+          [ "${{ inputs.maestro }}" = "true" ] && ARGS="$ARGS --maestro"
+          [ "${{ inputs.mitre }}" = "true" ] && ARGS="$ARGS --mitre"
+          [ "${{ inputs.semgrep }}" = "true" ] && ARGS="$ARGS --semgrep"
+          [ "${{ inputs.attack-paths }}" = "true" ] && ARGS="$ARGS --attack-paths"
+          ARGS="$ARGS --output /workspace/${{ inputs.output }}"
+        fi
+
+        docker run --rm \
+          -v "${{ github.workspace }}:/workspace" \
+          ghcr.io/leathal1/tito:latest \
+          $ARGS && EXIT=0 || EXIT=$?
+
+        echo "report-path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+        echo "exit-code=$EXIT" >> "$GITHUB_OUTPUT"
+
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔒 TITO Pro: Compliance, LLM analysis, custom templates"
+        echo "   Coming soon → https://github.com/Leathal1/TITO"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        if [ "${{ inputs.fail-on }}" != "never" ] && [ "$EXIT" -eq 2 ]; then
+          exit 1
+        fi
+
+    - name: Parse Results
+      id: parse
+      shell: bash
+      if: always()
+      run: |
+        REPORT="${{ inputs.output }}"
+        TOTAL=$(grep -c "^### Threat:" "$REPORT" 2>/dev/null || echo "0")
+        CRITICAL=$(grep -ci "critical" "$REPORT" 2>/dev/null || echo "0")
+        echo "threats-total=${TOTAL}" >> "$GITHUB_OUTPUT"
+        echo "threats-critical=${CRITICAL}" >> "$GITHUB_OUTPUT"

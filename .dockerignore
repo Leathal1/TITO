@@ -1,0 +1,12 @@
+.git
+.github
+dist/
+work/
+*.html
+*.md
+!README.md
+!LICENSE
+reports/
+coverage.out
+coverage.html
+tito

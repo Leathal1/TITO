@@ -1,0 +1,27 @@
+# TITO pre-commit hooks
+# Add to your .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/Leathal1/TITO
+#       rev: v2.1.0
+#       hooks:
+#         - id: tito-scan
+#         - id: tito-diff
+
+- id: tito-scan
+  name: TITO Threat Model Scan
+  description: Run TITO threat model analysis on the repository
+  entry: scripts/pre-commit-tito.sh scan
+  language: script
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push]
+
+- id: tito-diff
+  name: TITO Threat Diff
+  description: Check for security regressions in staged changes
+  entry: scripts/pre-commit-tito.sh diff
+  language: script
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit]

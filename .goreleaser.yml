@@ -1,0 +1,133 @@
+project_name: tito
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: tito
+    main: ./cmd/tito
+    binary: tito
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - config.example.yaml
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+dockers:
+  - image_templates:
+      - "ghcr.io/leathal1/tito:{{ .Version }}-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/Leathal1/TITO"
+    goarch: amd64
+
+  - image_templates:
+      - "ghcr.io/leathal1/tito:{{ .Version }}-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/Leathal1/TITO"
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/leathal1/tito:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/leathal1/tito:{{ .Version }}-amd64"
+      - "ghcr.io/leathal1/tito:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/leathal1/tito:latest"
+    image_templates:
+      - "ghcr.io/leathal1/tito:{{ .Version }}-amd64"
+      - "ghcr.io/leathal1/tito:{{ .Version }}-arm64"
+
+brews:
+  - repository:
+      owner: Leathal1
+      name: homebrew-tap
+    name: tito
+    homepage: "https://github.com/Leathal1/TITO"
+    description: "Threat In, Threat Out — Automated threat modeling for modern software"
+    license: "MIT"
+    install: |
+      bin.install "tito"
+    test: |
+      system "#{bin}/tito", "version"
+
+release:
+  github:
+    owner: Leathal1
+    name: TITO
+  prerelease: auto
+  name_template: "TITO v{{.Version}}"
+  header: |
+    ## 🛡️ TITO v{{.Version}}
+
+    Automated threat modeling with STRIDE-LM, MAESTRO, MITRE ATT&CK mapping, and attack path analysis.
+
+    ### Installation
+    ```bash
+    # macOS/Linux
+    curl -fsSL https://github.com/Leathal1/TITO/releases/download/v{{.Version}}/tito_{{.Version}}_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/').tar.gz | tar xz
+    sudo mv tito /usr/local/bin/
+
+    # Docker
+    docker pull ghcr.io/leathal1/tito:{{.Version}}
+
+    # Homebrew
+    brew install Leathal1/tap/tito
+    ```
+
+    > 🔒 **TITO Pro** — Compliance profiles (PCI DSS 4.0, HIPAA, SOC2), LLM-powered analysis, and CI/CD integrations. Coming soon.
+  footer: |
+    **Full Changelog**: https://github.com/Leathal1/TITO/compare/v{{ .PreviousTag }}...v{{ .Tag }}

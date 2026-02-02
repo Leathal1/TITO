@@ -1,0 +1,34 @@
+# TITO Threat Diff — GitLab CI Template for Merge Requests
+# Include this in your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/Leathal1/TITO/main/.gitlab/tito-diff.gitlab-ci.yml'
+
+tito-diff:
+  image: golang:1.22
+  stage: test
+  variables:
+    TITO_FAIL_ON: "critical"
+  before_script:
+    - go install github.com/Leathal1/TITO/cmd/tito@latest
+    - export PATH="$PATH:$HOME/go/bin"
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+  script:
+    - |
+      echo "🔍 TITO Threat Diff: ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} → ${CI_COMMIT_SHA}"
+      tito diff \
+        --repo . \
+        --base "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}" \
+        --head "${CI_COMMIT_SHA}" \
+        --format markdown \
+        --output threat-diff.md \
+        --fail-on "${TITO_FAIL_ON}"
+  artifacts:
+    paths:
+      - threat-diff.md
+    expire_in: 30 days
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  allow_failure:
+    exit_codes: [1]  # Warnings are non-blocking

@@ -1,0 +1,166 @@
+name: TITO Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        description: 'Repository path to scan'
+        type: string
+        default: '.'
+      maestro:
+        description: 'Enable MAESTRO analysis'
+        type: boolean
+        default: false
+      mitre:
+        description: 'Enable MITRE ATT&CK mapping'
+        type: boolean
+        default: false
+      semgrep:
+        description: 'Enable Semgrep SAST'
+        type: boolean
+        default: false
+      attack-paths:
+        description: 'Enable attack path analysis'
+        type: boolean
+        default: true
+      fail-on:
+        description: 'Fail threshold: critical, high, medium, any, never'
+        type: string
+        default: 'never'
+      diff-base:
+        description: 'Base ref for diff mode'
+        type: string
+        default: ''
+      diff-head:
+        description: 'Head ref for diff mode'
+        type: string
+        default: ''
+      go-version:
+        description: 'Go version for building TITO'
+        type: string
+        default: '1.22'
+      sarif-upload:
+        description: 'Upload SARIF to Security tab'
+        type: boolean
+        default: false
+      comment-on-pr:
+        description: 'Post report as PR comment'
+        type: boolean
+        default: true
+    outputs:
+      threats-total:
+        description: 'Total threats found'
+        value: ${{ jobs.scan.outputs.threats-total }}
+      threats-critical:
+        description: 'Critical threats'
+        value: ${{ jobs.scan.outputs.threats-critical }}
+      threats-high:
+        description: 'High threats'
+        value: ${{ jobs.scan.outputs.threats-high }}
+      exit-code:
+        description: 'TITO exit code'
+        value: ${{ jobs.scan.outputs.exit-code }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  scan:
+    name: TITO Threat Model
+    runs-on: ubuntu-latest
+    outputs:
+      threats-total: ${{ steps.parse.outputs.threats-total }}
+      threats-critical: ${{ steps.parse.outputs.threats-critical }}
+      threats-high: ${{ steps.parse.outputs.threats-high }}
+      exit-code: ${{ steps.scan.outputs.exit-code }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Install TITO
+        run: |
+          go install github.com/Leathal1/TITO/cmd/tito@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          echo "✅ TITO installed"
+
+      - name: Install Semgrep
+        if: inputs.semgrep
+        run: pip install semgrep --quiet
+
+      - name: Run Scan
+        id: scan
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.diff-base }}" ]; then
+            HEAD="${{ inputs.diff-head }}"
+            [ -z "$HEAD" ] && HEAD="HEAD"
+            tito diff \
+              --repo "${{ inputs.repo }}" \
+              --base "${{ inputs.diff-base }}" \
+              --head "$HEAD" \
+              --format markdown \
+              --output threat-report.md \
+              --fail-on "${{ inputs.fail-on }}" && EXIT=0 || EXIT=$?
+          else
+            ARGS="--repo ${{ inputs.repo }} --output threat-report.md"
+            [ "${{ inputs.maestro }}" = "true" ] && ARGS="$ARGS --maestro"
+            [ "${{ inputs.mitre }}" = "true" ] && ARGS="$ARGS --mitre"
+            [ "${{ inputs.semgrep }}" = "true" ] && ARGS="$ARGS --semgrep"
+            [ "${{ inputs.attack-paths }}" = "true" ] && ARGS="$ARGS --attack-paths"
+            tito scan $ARGS && EXIT=0 || EXIT=$?
+          fi
+
+          echo "exit-code=$EXIT" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ inputs.fail-on }}" != "never" ] && [ "$EXIT" -eq 2 ]; then
+            echo "::error::TITO: Threats exceed '${{ inputs.fail-on }}' threshold"
+            exit 1
+          fi
+
+      - name: Parse Results
+        id: parse
+        if: always()
+        run: |
+          REPORT="threat-report.md"
+          TOTAL=$(grep -c "^### Threat:" "$REPORT" 2>/dev/null || echo "0")
+          CRITICAL=$(grep -ci "critical" "$REPORT" 2>/dev/null || echo "0")
+          HIGH=$(grep -ci "severity.*high" "$REPORT" 2>/dev/null || echo "0")
+          echo "threats-total=${TOTAL}" >> "$GITHUB_OUTPUT"
+          echo "threats-critical=${CRITICAL}" >> "$GITHUB_OUTPUT"
+          echo "threats-high=${HIGH}" >> "$GITHUB_OUTPUT"
+
+      - name: PR Comment
+        if: github.event_name == 'pull_request' && inputs.comment-on-pr && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: tito
+          path: threat-report.md
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tito-report
+          path: threat-report.md
+          retention-days: 30
+
+      - name: Pro Hint
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔒 TITO Pro: Compliance (PCI/HIPAA/SOC2), LLM analysis"
+          echo "   Coming soon → https://github.com/Leathal1/TITO"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
