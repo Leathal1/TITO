@@ -1,6 +1,10 @@
-# TITO — Threat In, Threat Out
+<p align="center">
+  <img src="assets/logo.png" alt="TITO" width="400">
+</p>
 
-> **The threat modeler that thinks like an attacker.**
+<h1 align="center">Threat In, Threat Out</h1>
+
+<p align="center"><strong>The threat modeler that thinks like an attacker.</strong></p>
 
 [![CI](https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Leathal1/TITO?style=flat&color=blue)](https://github.com/Leathal1/TITO/releases)
