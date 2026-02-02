@@ -46,7 +46,7 @@ Every other threat modeling tool makes you draw diagrams by hand. TITO **reads y
 
 ```bash
 # Install
-go install github.com/Leathal1/TITO/cmd/tito@latest
+go install github.com/Leathal1/TITO/v2/cmd/tito@latest
 
 # Scan a repository
 tito scan --repo https://github.com/your/app
