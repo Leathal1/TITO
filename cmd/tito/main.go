@@ -18,6 +18,8 @@ import (
 	"github.com/Leathal1/TITO/pkg/dataflow"
 	"github.com/Leathal1/TITO/pkg/diff"
 	"github.com/Leathal1/TITO/pkg/diff/format"
+	"github.com/Leathal1/TITO/pkg/drift"
+	"github.com/Leathal1/TITO/pkg/license"
 	"github.com/Leathal1/TITO/pkg/maestro"
 	"github.com/Leathal1/TITO/pkg/mapper"
 	"github.com/Leathal1/TITO/pkg/mitre"
@@ -83,6 +85,11 @@ func init() {
 	rootCmd.AddCommand(complianceCmd)
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(semgrepCmd)
+	
+	// Pro tier commands
+	rootCmd.AddCommand(activateCmd)
+	rootCmd.AddCommand(licenseCmd)
+	rootCmd.AddCommand(driftCmd)
 }
 
 var initConfigCmd = &cobra.Command{
@@ -2059,4 +2066,331 @@ func init() {
 	semgrepCmd.AddCommand(semgrepStatusCmd)
 	semgrepCmd.AddCommand(semgrepInstallCmd)
 	semgrepCmd.AddCommand(semgrepUninstallCmd)
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Pro Tier Commands: License Management
+// ═══════════════════════════════════════════════════════════════════
+
+var activateCmd = &cobra.Command{
+	Use:   "activate [license-key]",
+	Short: "Activate TITO Pro with a license key",
+	Long: `Activate TITO Pro with a license key or start a 14-day trial.
+
+Examples:
+  tito activate <license-key>    # Activate with purchased license
+  tito activate --trial           # Start 14-day Pro trial (no credit card)`,
+	RunE: runActivate,
+}
+
+func init() {
+	activateCmd.Flags().Bool("trial", false, "Start 14-day Pro trial")
+	activateCmd.Flags().String("email", "", "Email address for trial (optional)")
+}
+
+func runActivate(cmd *cobra.Command, args []string) error {
+	startTrial, _ := cmd.Flags().GetBool("trial")
+	email, _ := cmd.Flags().GetString("email")
+	
+	// Initialize license system
+	if err := license.InitLicenseSystem(); err != nil {
+		return fmt.Errorf("failed to initialize license system: %w", err)
+	}
+	
+	if startTrial {
+		// Generate and save trial license
+		fmt.Println("🚀 Starting TITO Pro 14-day trial...")
+		fmt.Println()
+		
+		if email == "" {
+			email = "trial-user"
+		}
+		
+		licenseKey, err := license.GenerateTrialLicense(email)
+		if err != nil {
+			return fmt.Errorf("failed to generate trial license: %w", err)
+		}
+		
+		if err := license.SaveLicense(licenseKey); err != nil {
+			return fmt.Errorf("failed to save trial license: %w", err)
+		}
+		
+		fmt.Println("✓ Trial activated successfully!")
+		fmt.Println()
+		fmt.Println("Your 14-day Pro trial includes:")
+		fmt.Println("  ⭐ LLM-powered threat intelligence")
+		fmt.Println("  ⭐ Exploitability prediction engine")
+		fmt.Println("  ⭐ Continuous drift detection")
+		fmt.Println("  ⭐ Auto-remediation advisor")
+		fmt.Println("  ⭐ Crown jewel auto-discovery")
+		fmt.Println()
+		fmt.Println("Try these commands:")
+		fmt.Println("  tito drift --set-baseline    # Set security baseline")
+		fmt.Println("  tito drift --compare          # Detect drift")
+		fmt.Println("  tito license                  # Check trial status")
+		fmt.Println()
+		
+		// Show expiration
+		lic, _ := license.GetCurrentLicense()
+		fmt.Printf("Trial expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
+		fmt.Println()
+		
+		return nil
+	}
+	
+	// Activate with license key
+	if len(args) == 0 {
+		return fmt.Errorf("license key required (or use --trial)")
+	}
+	
+	licenseKey := args[0]
+	
+	fmt.Println("🔐 Activating TITO Pro license...")
+	fmt.Println()
+	
+	// Decode if base64
+	decoded, err := license.DecodeLicenseKey(licenseKey)
+	if err != nil {
+		return fmt.Errorf("invalid license key format: %w", err)
+	}
+	
+	// Validate
+	lic, err := license.ValidateLicense(decoded)
+	if err != nil {
+		return fmt.Errorf("license validation failed: %w", err)
+	}
+	
+	// Save
+	if err := license.SaveLicense(decoded); err != nil {
+		return fmt.Errorf("failed to save license: %w", err)
+	}
+	
+	fmt.Println("✓ License activated successfully!")
+	fmt.Println()
+	
+	// Show license info
+	tierEmoji := map[license.Tier]string{
+		license.TierPro:        "⭐",
+		license.TierTeam:       "👥",
+		license.TierEnterprise: "🏢",
+	}
+	
+	emoji := tierEmoji[lic.Tier]
+	fmt.Printf("%s Tier: %s\n", emoji, lic.Tier)
+	
+	if lic.User != "" {
+		fmt.Printf("User: %s\n", lic.User)
+	}
+	
+	if !lic.ExpiresAt.IsZero() {
+		fmt.Printf("Expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
+	}
+	
+	if len(lic.Features) > 0 {
+		fmt.Println()
+		fmt.Println("Enabled features:")
+		for _, feature := range lic.Features {
+			fmt.Printf("  ✓ %s\n", feature)
+		}
+	}
+	
+	fmt.Println()
+	
+	return nil
+}
+
+var licenseCmd = &cobra.Command{
+	Use:   "license",
+	Short: "Show current license status",
+	Long:  "Display the current TITO license tier and features",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := license.InitLicenseSystem(); err != nil {
+			return fmt.Errorf("failed to initialize license system: %w", err)
+		}
+		
+		return license.PrintLicenseStatus()
+	},
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Pro Tier Commands: Drift Detection
+// ═══════════════════════════════════════════════════════════════════
+
+var driftCmd = &cobra.Command{
+	Use:   "drift",
+	Short: "Detect security drift from baseline",
+	Long: `Compare current scan against a baseline to detect security drift.
+
+Drift detection tracks how your security posture changes over time:
+- New threats introduced
+- Mitigations removed
+- Trust boundary violations
+- Attack surface changes
+
+Examples:
+  tito drift --set-baseline         # Save current scan as baseline
+  tito drift --compare              # Compare against baseline
+  tito drift --trend                # Show risk trend over time
+  tito drift --baseline main.json --current feature.json  # Compare two scans`,
+	RunE: runDrift,
+}
+
+func init() {
+	driftCmd.Flags().Bool("set-baseline", false, "Save current scan as baseline")
+	driftCmd.Flags().String("baseline-name", "default", "Baseline name (for managing multiple baselines)")
+	driftCmd.Flags().Bool("compare", false, "Compare current scan against baseline")
+	driftCmd.Flags().String("baseline", "", "Path to baseline scan file (.tito.json)")
+	driftCmd.Flags().String("current", "", "Path to current scan file (.tito.json)")
+	driftCmd.Flags().Bool("trend", false, "Show security posture trend over time")
+	driftCmd.Flags().Int("days", 30, "Number of days of history to analyze for trend")
+	driftCmd.Flags().Bool("list-baselines", false, "List available baselines")
+	driftCmd.Flags().StringP("repo", "r", "", "Repository URL to scan")
+	driftCmd.Flags().StringP("branch", "b", "main", "Branch to scan")
+}
+
+func runDrift(cmd *cobra.Command, args []string) error {
+	// Check Pro license
+	if !license.RequireProOrUpgrade("Drift Detection") {
+		return nil // Already printed upgrade message
+	}
+	
+	setBaseline, _ := cmd.Flags().GetBool("set-baseline")
+	baselineName, _ := cmd.Flags().GetString("baseline-name")
+	compare, _ := cmd.Flags().GetBool("compare")
+	baselinePath, _ := cmd.Flags().GetString("baseline")
+	currentPath, _ := cmd.Flags().GetString("current")
+	showTrend, _ := cmd.Flags().GetBool("trend")
+	trendDays, _ := cmd.Flags().GetInt("days")
+	listBaselines, _ := cmd.Flags().GetBool("list-baselines")
+	repoURL, _ := cmd.Flags().GetString("repo")
+	branch, _ := cmd.Flags().GetString("branch")
+	
+	detector := drift.NewDriftDetector()
+	history := drift.NewScanHistory()
+	
+	// List baselines
+	if listBaselines {
+		fmt.Println("📋 Available Baselines:")
+		baselines, err := detector.ListBaselines()
+		if err != nil {
+			return err
+		}
+		
+		if len(baselines) == 0 {
+			fmt.Println("  (none)")
+			fmt.Println()
+			fmt.Println("Create a baseline:")
+			fmt.Println("  tito drift --set-baseline --repo <url>")
+			return nil
+		}
+		
+		for _, name := range baselines {
+			fmt.Printf("  • %s\n", name)
+		}
+		fmt.Println()
+		return nil
+	}
+	
+	// Show trend
+	if showTrend {
+		fmt.Printf("📈 Analyzing security posture trend (%d days)...\n", trendDays)
+		fmt.Println()
+		
+		trend, err := history.GetTrend(trendDays)
+		if err != nil {
+			return fmt.Errorf("failed to get trend: %w", err)
+		}
+		
+		drift.PrintTrend(trend)
+		return nil
+	}
+	
+	// Set baseline
+	if setBaseline {
+		// Need to scan first
+		if repoURL == "" {
+			return fmt.Errorf("--repo required for setting baseline")
+		}
+		
+		fmt.Println("🔍 Scanning repository to set baseline...")
+		scanResult, err := performScan(repoURL, branch, "baseline")
+		if err != nil {
+			return fmt.Errorf("scan failed: %w", err)
+		}
+		
+		// Save as baseline
+		if err := detector.SetBaseline(scanResult, baselineName); err != nil {
+			return err
+		}
+		
+		// Also save to history
+		if err := history.SaveScan(scanResult); err != nil {
+			fmt.Printf("⚠️  Warning: Failed to save to history: %v\n", err)
+		}
+		
+		fmt.Println()
+		fmt.Println("💡 Next steps:")
+		fmt.Println("  tito drift --compare --repo <url>    # Compare future scans")
+		fmt.Println()
+		
+		return nil
+	}
+	
+	// Compare against baseline
+	if compare {
+		var baselineScan, currentScan *scan.ScanResult
+		var err error
+		
+		// Load baseline
+		if baselinePath != "" {
+			baselineScan, err = scan.LoadResult(baselinePath)
+		} else {
+			baselineScan, err = detector.LoadBaseline(baselineName)
+		}
+		
+		if err != nil {
+			return fmt.Errorf("failed to load baseline: %w (use --set-baseline first)", err)
+		}
+		
+		// Load/scan current
+		if currentPath != "" {
+			currentScan, err = scan.LoadResult(currentPath)
+			if err != nil {
+				return fmt.Errorf("failed to load current scan: %w", err)
+			}
+		} else {
+			if repoURL == "" {
+				return fmt.Errorf("--repo required for drift comparison")
+			}
+			
+			fmt.Println("🔍 Scanning current state...")
+			currentScan, err = performScan(repoURL, branch, "current")
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+			
+			// Save to history
+			if err := history.SaveScan(currentScan); err != nil {
+				fmt.Printf("⚠️  Warning: Failed to save to history: %v\n", err)
+			}
+		}
+		
+		// Compare
+		fmt.Println("🔍 Analyzing drift...")
+		report := detector.Compare(currentScan, baselineScan)
+		
+		drift.PrintDriftReport(report)
+		
+		// Exit code based on drift score
+		if report.DriftScore >= 70 {
+			os.Exit(2) // Critical drift
+		} else if report.DriftScore >= 50 {
+			os.Exit(1) // High drift
+		}
+		
+		return nil
+	}
+	
+	// Default: show help
+	return cmd.Help()
 }
