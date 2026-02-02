@@ -350,7 +350,7 @@ func init() {
 	scanCmd.Flags().StringP("output", "o", "", "Output file for report/diagram")
 	scanCmd.Flags().String("save", "", "Save scan result to .tito.json file for later diffing")
 	scanCmd.Flags().String("report", "", "Generate a standard threat model report (markdown)")
-	scanCmd.MarkFlagRequired("repo")
+	_ = scanCmd.MarkFlagRequired("repo")
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -1276,7 +1276,7 @@ func init() {
 	attackPathsCmd.Flags().Bool("3d", false, "Generate 3D visualization with attack path overlay")
 	attackPathsCmd.Flags().Bool("narrative", false, "Print human-readable attack narratives")
 	attackPathsCmd.Flags().StringP("output", "o", "attack-paths.html", "Output file")
-	attackPathsCmd.MarkFlagRequired("repo")
+	_ = attackPathsCmd.MarkFlagRequired("repo")
 }
 
 func runAttackPaths(cmd *cobra.Command, args []string) error {
@@ -1517,7 +1517,7 @@ func init() {
 	complianceCmd.Flags().StringP("repo", "r", "", "Repository URL or local path")
 	complianceCmd.Flags().String("framework", "soc2", "Compliance framework (soc2, iso27001, nist800-53, pci-dss, hipaa)")
 	complianceCmd.Flags().StringP("output", "o", "compliance-report.md", "Output file")
-	complianceCmd.MarkFlagRequired("repo")
+	_ = complianceCmd.MarkFlagRequired("repo")
 }
 
 func runCompliance(cmd *cobra.Command, args []string) error {
@@ -1942,7 +1942,7 @@ func openBrowser(url string) {
 	}
 
 	if cmd != "" {
-		exec.Command(cmd, args...).Start()
+		_ = exec.Command(cmd, args...).Start()
 	}
 }
 

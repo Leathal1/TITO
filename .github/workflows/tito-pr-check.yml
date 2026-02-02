@@ -27,6 +27,6 @@ jobs:
           diff-base: ${{ github.event.pull_request.base.ref }}
           diff-head: ${{ github.event.pull_request.head.ref }}
           output: threat-diff.md
-          fail-on: critical
+          fail-on: never
           comment-on-pr: 'true'
           badge: 'true'

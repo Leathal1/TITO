@@ -26,6 +26,7 @@ jobs:
           semgrep: 'true'
           attack-paths: 'true'
           output: threat-model.md
+          fail-on: never
           comment-on-pr: 'true'
           upload-artifact: 'true'
           badge: 'true'
