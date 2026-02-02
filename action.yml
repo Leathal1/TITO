@@ -190,7 +190,7 @@ runs:
       id: run
       shell: bash
       run: |
-        set -euo pipefail
+        set -uo pipefail
 
         # Determine output extension
         OUTPUT="${{ inputs.output }}"

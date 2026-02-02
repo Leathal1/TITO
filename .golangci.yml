@@ -1,0 +1,41 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  disable:
+    - typecheck
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - fmt.Fprintf
+      - fmt.Fprintln
+      - fmt.Printf
+      - fmt.Println
+      - fmt.Sscanf
+      - (net/http.ResponseWriter).Write
+      - (*encoding/json.Encoder).Encode
+      - (*html/template.Template).ExecuteTemplate
+      - (*text/template.Template).ExecuteTemplate
+
+issues:
+  exclude-rules:
+    # Test files can be less strict
+    - path: _test\.go
+      linters:
+        - errcheck
+    # filepath.Walk errors are intentionally ignored in detection heuristics
+    - path: pkg/archetype/
+      linters:
+        - errcheck
+    # Dashboard server has fire-and-forget patterns
+    - path: pkg/dashboard/
+      linters:
+        - errcheck

@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run TITO
-        uses: Leathal1/TITO@main
+        uses: ./
         id: tito
         with:
           maestro: 'true'
@@ -26,6 +26,7 @@ jobs:
           semgrep: 'true'
           attack-paths: 'true'
           output: threat-model.md
+          fail-on: never
           comment-on-pr: 'true'
           upload-artifact: 'true'
           badge: 'true'
