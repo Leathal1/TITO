@@ -152,6 +152,12 @@ runs:
         if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
         if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
 
+        # Strategy: local build > go install > release download
+        if [ -f "cmd/tito/main.go" ]; then
+          echo "📦 Building TITO from local source..."
+          go build -o /usr/local/bin/tito ./cmd/tito/ 2>/dev/null && echo "✅ TITO built from source" && exit 0 || true
+        fi
+
         if [ "$VERSION" = "latest" ]; then
           echo "📦 Installing TITO (latest) via go install..."
           go install github.com/Leathal1/TITO/cmd/tito@latest 2>/dev/null || {
@@ -160,12 +166,12 @@ runs:
             LATEST=$(curl -fsSL https://api.github.com/repos/Leathal1/TITO/releases/latest | grep tag_name | cut -d '"' -f 4)
             VERSION="${LATEST}"
             BINARY="tito_${VERSION#v}_${OS}_${ARCH}.tar.gz"
-            curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/
+            curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/ || true
           }
         else
           BINARY="tito_${VERSION#v}_${OS}_${ARCH}.tar.gz"
           echo "📦 Downloading TITO ${VERSION}..."
-          curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/
+          curl -fsSL "https://github.com/Leathal1/TITO/releases/download/${VERSION}/${BINARY}" | tar xz -C /usr/local/bin/ || true
         fi
 
         # Verify
