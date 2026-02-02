@@ -23,7 +23,7 @@ config.yaml
 *.db
 *.sqlite
 *.sqlite3
-reports/
+/reports/
 logs/
 *.log
 
