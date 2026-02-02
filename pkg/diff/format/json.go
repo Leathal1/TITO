@@ -3,7 +3,7 @@ package format
 import (
 	"encoding/json"
 
-	"github.com/Leathal1/TITO/pkg/diff"
+	"github.com/Leathal1/TITO/v2/pkg/diff"
 )
 
 // FormatJSON generates a machine-readable JSON output

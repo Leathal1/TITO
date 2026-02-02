@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Leathal1/TITO/pkg/models"
-	"github.com/Leathal1/TITO/pkg/scanner"
-	"github.com/Leathal1/TITO/pkg/stridelm"
+	"github.com/Leathal1/TITO/v2/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/scanner"
+	"github.com/Leathal1/TITO/v2/pkg/stridelm"
 )
 
 // ThreatMapper maps threats to code assets

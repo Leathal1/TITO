@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Leathal1/TITO/pkg/mapper"
-	"github.com/Leathal1/TITO/pkg/models"
-	"github.com/Leathal1/TITO/pkg/scanner"
+	"github.com/Leathal1/TITO/v2/pkg/mapper"
+	"github.com/Leathal1/TITO/v2/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/scanner"
 )
 
 //go:embed templates/*.html

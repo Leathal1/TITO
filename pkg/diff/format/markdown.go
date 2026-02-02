@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Leathal1/TITO/pkg/diff"
-	"github.com/Leathal1/TITO/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/diff"
+	"github.com/Leathal1/TITO/v2/pkg/models"
 )
 
 // FormatMarkdown generates a GitHub-friendly markdown summary

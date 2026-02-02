@@ -3,7 +3,7 @@ package attackpath
 import (
 	"testing"
 
-	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/v2/pkg/dataflow"
 )
 
 // Helper function to create test diagram data

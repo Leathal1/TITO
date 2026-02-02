@@ -3,7 +3,7 @@ package format
 import (
 	"fmt"
 
-	"github.com/Leathal1/TITO/pkg/diff"
+	"github.com/Leathal1/TITO/v2/pkg/diff"
 )
 
 // FormatSummary generates a one-line summary for CI output

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Leathal1/TITO/pkg/scan"
+	"github.com/Leathal1/TITO/v2/pkg/scan"
 )
 
 // ScanHistory manages historical scan data for trend analysis

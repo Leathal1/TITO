@@ -3,7 +3,7 @@ package diff
 import (
 	"fmt"
 
-	"github.com/Leathal1/TITO/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/models"
 )
 
 // DetermineVerdict evaluates the diff and returns a verdict and reason

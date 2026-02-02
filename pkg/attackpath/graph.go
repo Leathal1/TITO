@@ -3,7 +3,7 @@ package attackpath
 import (
 	"strings"
 
-	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/v2/pkg/dataflow"
 )
 
 // GraphBuilder builds an attack graph from diagram data

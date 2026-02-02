@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Leathal1/TITO/pkg/stridelm"
+	"github.com/Leathal1/TITO/v2/pkg/stridelm"
 )
 
 func TestMain(m *testing.M) {

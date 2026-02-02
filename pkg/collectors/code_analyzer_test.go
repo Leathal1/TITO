@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Leathal1/TITO/pkg/models"
-	"github.com/Leathal1/TITO/pkg/scanner"
+	"github.com/Leathal1/TITO/v2/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/scanner"
 )
 
 func TestCodeAnalyzer_Collect(t *testing.T) {

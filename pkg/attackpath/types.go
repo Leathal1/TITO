@@ -1,7 +1,7 @@
 package attackpath
 
 import (
-	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/v2/pkg/dataflow"
 )
 
 // AttackGraph represents the complete attack graph built from dataflow

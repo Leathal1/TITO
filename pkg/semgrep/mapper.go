@@ -3,8 +3,8 @@ package semgrep
 import (
 	"strings"
 
-	"github.com/Leathal1/TITO/pkg/maestro"
-	"github.com/Leathal1/TITO/pkg/stridelm"
+	"github.com/Leathal1/TITO/v2/pkg/maestro"
+	"github.com/Leathal1/TITO/v2/pkg/stridelm"
 )
 
 // ThreatMapping represents a mapping from Semgrep findings to threat frameworks

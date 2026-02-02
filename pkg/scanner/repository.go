@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Leathal1/TITO/pkg/archetype"
+	"github.com/Leathal1/TITO/v2/pkg/archetype"
 )
 
 // Repository represents a scanned code repository

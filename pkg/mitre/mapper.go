@@ -1,8 +1,8 @@
 package mitre
 
 import (
-	"github.com/Leathal1/TITO/pkg/maestro"
-	"github.com/Leathal1/TITO/pkg/stridelm"
+	"github.com/Leathal1/TITO/v2/pkg/maestro"
+	"github.com/Leathal1/TITO/v2/pkg/stridelm"
 )
 
 // Mapping represents a mapping between threat categories and ATT&CK techniques

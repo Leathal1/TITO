@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Leathal1/TITO/pkg/models"
-	"github.com/Leathal1/TITO/pkg/stridelm"
+	"github.com/Leathal1/TITO/v2/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/stridelm"
 )
 
 func TestNewProcessor(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Leathal1/TITO/pkg/dataflow"
+	"github.com/Leathal1/TITO/v2/pkg/dataflow"
 )
 
 // NarrativeGenerator generates human-readable attack stories

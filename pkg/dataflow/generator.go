@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Leathal1/TITO/pkg/models"
-	"github.com/Leathal1/TITO/pkg/scanner"
+	"github.com/Leathal1/TITO/v2/pkg/models"
+	"github.com/Leathal1/TITO/v2/pkg/scanner"
 )
 
 // Generator generates data flow diagrams
