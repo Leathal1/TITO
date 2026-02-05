@@ -18,8 +18,6 @@ import (
 	"github.com/Leathal1/TITO/v2/pkg/dataflow"
 	"github.com/Leathal1/TITO/v2/pkg/diff"
 	"github.com/Leathal1/TITO/v2/pkg/diff/format"
-	"github.com/Leathal1/TITO/v2/pkg/drift"
-	"github.com/Leathal1/TITO/v2/pkg/license"
 	"github.com/Leathal1/TITO/v2/pkg/maestro"
 	"github.com/Leathal1/TITO/v2/pkg/mapper"
 	"github.com/Leathal1/TITO/v2/pkg/mitre"
@@ -85,11 +83,6 @@ func init() {
 	rootCmd.AddCommand(complianceCmd)
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(semgrepCmd)
-	
-	// Pro tier commands
-	rootCmd.AddCommand(activateCmd)
-	rootCmd.AddCommand(licenseCmd)
-	rootCmd.AddCommand(driftCmd)
 }
 
 var initConfigCmd = &cobra.Command{
@@ -402,7 +395,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Repository scanned successfully\n")
 	fmt.Printf("  Language: %s\n", repo.Language)
 	fmt.Printf("  Framework: %s\n", repo.Framework)
-	
+
 	// Display architecture
 	if repo.Architecture != nil {
 		fmt.Printf("  Architecture: %s", repo.Architecture.PrimaryType.String())
@@ -410,7 +403,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			fmt.Printf(" (confidence: %.0f%%)", repo.Architecture.Confidence*100)
 		}
 		fmt.Println()
-		
+
 		if len(repo.Architecture.SecondaryTypes) > 0 {
 			fmt.Printf("    Secondary: ")
 			for i, st := range repo.Architecture.SecondaryTypes {
@@ -421,7 +414,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 			fmt.Println()
 		}
-		
+
 		// Show top signals
 		if len(repo.Architecture.Signals) > 0 {
 			fmt.Printf("    Signals: ")
@@ -440,7 +433,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-	
+
 	fmt.Printf("  Assets discovered: %d\n", len(repo.Assets))
 	fmt.Printf("  Data flows: %d\n", len(repo.DataFlows))
 	fmt.Printf("  Dependencies: %d\n", len(repo.Dependencies))
@@ -521,17 +514,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 			mappings := semgrepMapper.MapFindings(filteredFindings)
 			fmt.Printf("  Mapped to %d threat categories\n", len(semgrep.GroupBySTRIDE(mappings)))
 			fmt.Println()
-			
+
 			// PCI DSS mapping (if --pci flag)
 			if enablePCI {
 				fmt.Println("🔒 Mapping to PCI DSS v4.0 requirements...")
 				pciMapper := pci.NewMapper()
 				pciMappingsCount := make(map[string]int)
-				
+
 				for _, finding := range filteredFindings {
 					cweIDs := semgrep.GetCWEIDs(finding)
 					mapping := semgrepMapper.MapFinding(finding)
-					
+
 					cweStrs := make([]string, len(cweIDs))
 					for i, id := range cweIDs {
 						cweStrs[i] = fmt.Sprintf("CWE-%d", id)
@@ -543,13 +536,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 						cweStrs,
 						[]string{finding.CheckID},
 					)
-					
+
 					for _, pciMapping := range pciMappings {
 						reqID := fmt.Sprintf("%s.%s", pciMapping.RequirementID, pciMapping.SubRequirementID)
 						pciMappingsCount[reqID]++
 					}
 				}
-				
+
 				fmt.Printf("✓ Mapped to %d PCI DSS requirements\n", len(pciMappingsCount))
 				if len(pciMappingsCount) > 0 {
 					fmt.Println("\n  Top PCI DSS requirements with findings:")
@@ -616,7 +609,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		if basePath == "" {
 			basePath = "threat-model"
 		}
-		
+
 		// Generate 2D diagram
 		if enableDataflow {
 			fmt.Println("📊 Generating 2D data flow diagram...")
@@ -624,30 +617,20 @@ func runScan(cmd *cobra.Command, args []string) error {
 			if !strings.HasSuffix(diagramPath, ".html") {
 				diagramPath += ".html"
 			}
-			
+
 			generator := dataflow.NewGenerator()
 			if err := generator.GenerateFromRepository(repo, processedThreats, diagramPath); err != nil {
 				return fmt.Errorf("2D diagram generation failed: %w", err)
 			}
-			
+
 			fmt.Printf("✓ 2D diagram generated: %s\n", diagramPath)
 			fmt.Println()
 		}
-		
-		// Generate 3D diagram (Pro feature)
+
+		// Generate 3D diagram
 		if enable3D {
-			if !license.IsPro() {
-				fmt.Println()
-				fmt.Println("🔒 3D visualization requires TITO Pro or higher.")
-				fmt.Println("   The stunning 3D threat model brings your attack surface to life —")
-				fmt.Println("   explore data flows, trust boundaries, and attack paths interactively.")
-				fmt.Println("   → https://tito.security/pricing")
-				fmt.Println()
-				fmt.Println("💡 Your 2D diagram and text report are still available!")
-				fmt.Println()
-			} else {
-				fmt.Println("🌌 Generating 3D data flow visualization...")
-			
+			fmt.Println("🌌 Generating 3D data flow visualization...")
+
 			// If both flags, add -3d suffix
 			diagram3DPath := basePath
 			if enableDataflow {
@@ -655,38 +638,38 @@ func runScan(cmd *cobra.Command, args []string) error {
 			} else if !strings.HasSuffix(diagram3DPath, ".html") {
 				diagram3DPath += ".html"
 			}
-			
+
 			// Build diagram data first
 			generator := dataflow.NewGenerator()
 			diagramData := generator.BuildDiagramData(repo, processedThreats)
-			
+
 			// Generate 3D visualization
 			generator3D := dataflow.NewGenerator3D()
-			
+
 			// Check if attack paths should be included
 			if enableAttackPaths {
 				fmt.Println("⚔️  Analyzing attack paths...")
-				
+
 				// Build attack graph
 				graphBuilder := attackpath.NewGraphBuilder(diagramData)
 				attackGraph := graphBuilder.Build()
-				
+
 				// Find critical paths
 				pathFinder := attackpath.NewPathFinder(attackGraph)
 				allPaths := pathFinder.FindCriticalPaths(10) // Get top 10 paths
-				
+
 				// Score and enhance all paths
 				scorer := attackpath.NewScorer(attackGraph)
 				narrativeGen := attackpath.NewNarrativeGenerator(attackGraph)
-				
+
 				for i := range allPaths {
 					allPaths[i].CompositeRisk = scorer.ScorePath(allPaths[i].Steps)
 					allPaths[i].MitreTactics = attackpath.ExtractMitreTactics(allPaths[i].Steps)
 					allPaths[i].Narrative = narrativeGen.GenerateNarrative(allPaths[i])
 				}
-				
+
 				fmt.Printf("✓ Found %d attack paths\n", len(allPaths))
-				
+
 				// Generate 3D with attack paths
 				if err := generator3D.Generate3DWithAttackPaths(diagramData, allPaths, diagram3DPath); err != nil {
 					return fmt.Errorf("3D diagram with attack paths generation failed: %w", err)
@@ -697,14 +680,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 					return fmt.Errorf("3D diagram generation failed: %w", err)
 				}
 			}
-			
-				fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
-				fmt.Println("  Open in browser to explore the stunning 3D threat model!")
-				if enableAttackPaths {
-					fmt.Println("  Click 'Show Attack Paths' button to see attack chains!")
-				}
-				fmt.Println()
+
+			fmt.Printf("✓ 3D visualization generated: %s\n", diagram3DPath)
+			fmt.Println("  Open in browser to explore the 3D threat model!")
+			if enableAttackPaths {
+				fmt.Println("  Click 'Show Attack Paths' button to see attack chains!")
 			}
+			fmt.Println()
 		}
 	}
 
@@ -901,15 +883,15 @@ func runScan(cmd *cobra.Command, args []string) error {
 		reportData := &reports.ScanReportData{
 			Repository:    repoURL,
 			Branch:        branch,
-			Language:       repo.Language,
-			Framework:      repo.Framework,
-			Architecture:   archStr,
-			Assets:         repo.Assets,
-			DataFlows:      repo.DataFlows,
-			Dependencies:   repo.Dependencies,
-			Threats:        processedThreats,
-			MappedThreats:  mappedThreats,
-			SemgrepCount:   len(semgrepFindings),
+			Language:      repo.Language,
+			Framework:     repo.Framework,
+			Architecture:  archStr,
+			Assets:        repo.Assets,
+			DataFlows:     repo.DataFlows,
+			Dependencies:  repo.Dependencies,
+			Threats:       processedThreats,
+			MappedThreats: mappedThreats,
+			SemgrepCount:  len(semgrepFindings),
 		}
 		if err := reports.GenerateScanReport(reportData, reportPath); err != nil {
 			return fmt.Errorf("report generation failed: %w", err)
@@ -917,20 +899,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n📄 Threat model report: %s\n", reportPath)
 	}
 
-	// Save scan result if requested (Pro feature)
+	// Save scan result if requested
 	savePath, _ := cmd.Flags().GetString("save")
 	if savePath != "" {
-		if !license.IsPro() {
-			fmt.Println()
-			fmt.Println("🔒 Saving scan results requires TITO Pro or higher.")
-			fmt.Println("   Save results to .tito.json for PR diffing and historical tracking.")
-			fmt.Println("   → https://tito.security/pricing")
-			fmt.Println()
-			savePath = "" // Skip saving
-		} else {
-			fmt.Println()
-			fmt.Printf("💾 Saving scan result to %s...\n", savePath)
-		}
+		fmt.Println()
+		fmt.Printf("💾 Saving scan result to %s...\n", savePath)
 	}
 	if savePath != "" {
 		// Build attack paths for save
@@ -942,7 +915,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			attackGraph := graphBuilder.Build()
 			pathFinder := attackpath.NewPathFinder(attackGraph)
 			attackPaths = pathFinder.FindCriticalPaths(10)
-			
+
 			scorer := attackpath.NewScorer(attackGraph)
 			narrativeGen := attackpath.NewNarrativeGenerator(attackGraph)
 			for i := range attackPaths {
@@ -951,14 +924,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 				attackPaths[i].Narrative = narrativeGen.GenerateNarrative(attackPaths[i])
 			}
 		}
-		
+
 		// Get commit SHA if possible
 		commitSHA := ""
 		gitCmd := exec.Command("git", "-C", repo.LocalPath, "rev-parse", "HEAD")
 		if output, err := gitCmd.Output(); err == nil {
 			commitSHA = strings.TrimSpace(string(output))
 		}
-		
+
 		// Build scan result
 		scanResult := scan.NewScanResult()
 		scanResult.Repository = scan.RepositoryInfo{
@@ -974,7 +947,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		scanResult.Threats = processedThreats
 		scanResult.MappedThreats = mappedThreats
 		scanResult.AttackPaths = attackPaths
-		
+
 		if err := scan.SaveResult(scanResult, savePath); err != nil {
 			fmt.Printf("⚠️  Warning: Failed to save scan result: %v\n", err)
 		} else {
@@ -1082,7 +1055,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("base scan failed: %w", err)
 		}
-		fmt.Printf("✓ Base scan complete: %d threats, %.1f max risk\n", 
+		fmt.Printf("✓ Base scan complete: %d threats, %.1f max risk\n",
 			len(baseScan.Threats), baseScan.Stats.MaxRiskScore*10)
 
 		// Save base if requested
@@ -1102,7 +1075,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("head scan failed: %w", err)
 		}
-		fmt.Printf("✓ Head scan complete: %d threats, %.1f max risk\n", 
+		fmt.Printf("✓ Head scan complete: %d threats, %.1f max risk\n",
 			len(headScan.Threats), headScan.Stats.MaxRiskScore*10)
 
 		// Save head if requested
@@ -1132,9 +1105,9 @@ func runDiff(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to load head scan: %w", err)
 		}
 
-		fmt.Printf("✓ Loaded base scan: %d threats, %.1f max risk\n", 
+		fmt.Printf("✓ Loaded base scan: %d threats, %.1f max risk\n",
 			len(baseScan.Threats), baseScan.Stats.MaxRiskScore*10)
-		fmt.Printf("✓ Loaded head scan: %d threats, %.1f max risk\n", 
+		fmt.Printf("✓ Loaded head scan: %d threats, %.1f max risk\n",
 			len(headScan.Threats), headScan.Stats.MaxRiskScore*10)
 		fmt.Println()
 	}
@@ -1198,20 +1171,20 @@ func performScan(repoURL, branch, label string) (*scan.ScanResult, error) {
 	defer os.RemoveAll(workDir)
 
 	s := scanner.NewScanner(workDir)
-	
+
 	// Scan repository
 	repo, err := s.ScanRepository(ctx, repoURL, branch)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Collect threats
 	codeAnalyzer := collectors.NewCodeAnalyzer(repo)
 	threats, err := codeAnalyzer.Collect(ctx)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Process threats
 	processor := pipeline.NewProcessor(pipeline.ProcessorConfig{
 		MinPriority: 0.0,
@@ -1221,21 +1194,21 @@ func performScan(repoURL, branch, label string) (*scan.ScanResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Map threats
 	threatMapper := mapper.NewThreatMapper(processedThreats)
 	mappedThreats, err := threatMapper.MapThreatsToRepository(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Get commit SHA
 	commitSHA := ""
 	gitCmd := exec.Command("git", "-C", repo.LocalPath, "rev-parse", "HEAD")
 	if output, err := gitCmd.Output(); err == nil {
 		commitSHA = strings.TrimSpace(string(output))
 	}
-	
+
 	// Build scan result
 	result := scan.NewScanResult()
 	result.Repository = scan.RepositoryInfo{
@@ -1252,7 +1225,7 @@ func performScan(repoURL, branch, label string) (*scan.ScanResult, error) {
 	result.MappedThreats = mappedThreats
 	result.AttackPaths = []attackpath.AttackPath{} // Empty for diff mode
 	result.CalculateStats()
-	
+
 	return result, nil
 }
 
@@ -1309,7 +1282,7 @@ func init() {
 func runAttackPaths(cmd *cobra.Command, args []string) error {
 	repoURL, _ := cmd.Flags().GetString("repo")
 	branch, _ := cmd.Flags().GetString("branch")
-	_ , _ = cmd.Flags().GetString("target") // targetFilter - reserved for future filtering
+	_, _ = cmd.Flags().GetString("target") // targetFilter - reserved for future filtering
 	topN, _ := cmd.Flags().GetInt("top")
 	enable3D, _ := cmd.Flags().GetBool("3d")
 	enableNarrative, _ := cmd.Flags().GetBool("narrative")
@@ -1346,14 +1319,14 @@ func runAttackPaths(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("code analysis failed: %w", err)
 	}
-	
+
 	// Process threats
 	processor := pipeline.NewProcessor(pipeline.ProcessorConfig{
 		MinPriority: 0.0,
 		MaxAgeDays:  365,
 	})
 	processedThreats, _ := processor.Process(ctx, threats)
-	
+
 	// Map threats to repository
 	m := mapper.NewThreatMapper(processedThreats)
 	_, _ = m.MapThreatsToRepository(ctx, repo)
@@ -1412,10 +1385,10 @@ func runAttackPaths(cmd *cobra.Command, args []string) error {
 		riskLevel := attackpath.GetRiskLevel(path.CompositeRisk)
 
 		fmt.Printf("%s %s Path #%d (Risk: %.1f/10.0)\n", emoji, riskLevel, i+1, path.CompositeRisk)
-		
+
 		entryNode := attackGraph.Nodes[path.EntryPoint]
 		targetNode := attackGraph.Nodes[path.Target]
-		
+
 		if entryNode != nil && targetNode != nil {
 			fmt.Printf("   %s → ... → %s\n", entryNode.Label, targetNode.Label)
 		}
@@ -1548,29 +1521,14 @@ func init() {
 }
 
 func runCompliance(cmd *cobra.Command, args []string) error {
-	if !license.IsEnterprise() {
-		fmt.Println()
-		fmt.Println("🏢 Compliance mapping is a TITO Enterprise feature")
-		fmt.Println()
-		fmt.Println("Enterprise includes:")
-		fmt.Println("  • SOC 2, ISO 27001, NIST 800-53, PCI DSS, HIPAA mappings")
-		fmt.Println("  • Automated compliance gap analysis")
-		fmt.Println("  • Evidence generation for audits")
-		fmt.Println("  • Priority support")
-		fmt.Println()
-		fmt.Println("Learn more: https://tito.security/enterprise")
-		fmt.Println()
-		return nil
-	}
-
 	framework, _ := cmd.Flags().GetString("framework")
-	
+
 	// PCI DSS compliance
 	if framework == "pci-dss" || framework == "pci" {
 		// Run PCI DSS compliance
 		return runPCICompliance(cmd, args)
 	}
-	
+
 	// Other frameworks - TODO: Implement compliance mapping engine
 	repoURL, _ := cmd.Flags().GetString("repo")
 	output, _ := cmd.Flags().GetString("output")
@@ -1597,10 +1555,10 @@ func runPCICompliance(cmd *cobra.Command, args []string) error {
 
 	// Step 1: Run threat detection (reuse scan logic)
 	fmt.Println("📊 Step 1/3: Scanning for threats...")
-	
+
 	// Run Semgrep scan with PCI rules
 	runner := semgrep.NewRunner("")
-	
+
 	// Add PCI-specific rules
 	pciRulesPath := filepath.Join(filepath.Dir(os.Args[0]), "..", "rules", "pci")
 	if _, err := os.Stat(pciRulesPath); err == nil {
@@ -1617,7 +1575,7 @@ func runPCICompliance(cmd *cobra.Command, args []string) error {
 
 	// Step 2: Map findings to threats
 	fmt.Println("🔍 Step 2/3: Mapping findings to threats and PCI requirements...")
-	
+
 	threats := make([]models.Threat, 0)
 	semgrepMapper := semgrep.NewMapper()
 	pciMapper := pci.NewMapper()
@@ -1625,7 +1583,7 @@ func runPCICompliance(cmd *cobra.Command, args []string) error {
 	for _, finding := range results.Results {
 		// Map to STRIDE-LM
 		mapping := semgrepMapper.MapFinding(finding)
-		
+
 		// Create threat
 		threat := models.Threat{
 			ID:          fmt.Sprintf("threat-%d", len(threats)+1),
@@ -1649,7 +1607,7 @@ func runPCICompliance(cmd *cobra.Command, args []string) error {
 		for i, id := range cweIDs {
 			cweStrs[i] = fmt.Sprintf("CWE-%d", id)
 		}
-		
+
 		// Map to PCI requirements
 		pciMappings := pciMapper.MapThreat(
 			threat.Title,
@@ -1674,7 +1632,7 @@ func runPCICompliance(cmd *cobra.Command, args []string) error {
 
 	// Step 3: Generate PCI compliance report
 	fmt.Println("📋 Step 3/3: Generating PCI DSS compliance report...")
-	
+
 	report := pci.GenerateReport(threats)
 	markdown := report.ToMarkdown()
 
@@ -1749,21 +1707,6 @@ func init() {
 }
 
 func runAPI(cmd *cobra.Command, args []string) error {
-	if !license.IsEnterprise() {
-		fmt.Println()
-		fmt.Println("🏢 API server is a TITO Enterprise feature")
-		fmt.Println()
-		fmt.Println("Enterprise includes:")
-		fmt.Println("  • REST API for programmatic access")
-		fmt.Println("  • WebSocket for real-time scan events")
-		fmt.Println("  • Integration with internal tooling")
-		fmt.Println("  • Priority support")
-		fmt.Println()
-		fmt.Println("Learn more: https://tito.security/enterprise")
-		fmt.Println()
-		return nil
-	}
-
 	// TODO: Implement REST API server
 	port, _ := cmd.Flags().GetInt("port")
 	fmt.Println("🏢 TITO API Server")
@@ -1815,7 +1758,7 @@ type CategoryDistributionItem struct {
 // getThreatDistribution returns threat counts grouped by STRIDE-LM category
 func getThreatDistribution(threats []*models.Threat) []CategoryDistributionItem {
 	distribution := make(map[string]*CategoryDistributionItem)
-	
+
 	// Count threats by category
 	for _, threat := range threats {
 		if threat.StrideProfile != nil {
@@ -1831,13 +1774,13 @@ func getThreatDistribution(threats []*models.Threat) []CategoryDistributionItem 
 			distribution[catCode].Count++
 		}
 	}
-	
+
 	// Convert map to sorted slice (by count descending)
 	result := make([]CategoryDistributionItem, 0, len(distribution))
 	for _, item := range distribution {
 		result = append(result, *item)
 	}
-	
+
 	// Simple bubble sort by count (descending)
 	for i := 0; i < len(result)-1; i++ {
 		for j := 0; j < len(result)-i-1; j++ {
@@ -1846,7 +1789,7 @@ func getThreatDistribution(threats []*models.Threat) []CategoryDistributionItem 
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -1860,12 +1803,12 @@ type TopThreatByCategoryItem struct {
 // getTopThreatsByCategory returns one top threat per STRIDE-LM category
 func getTopThreatsByCategory(mappedThreats []mapper.MappedThreat) []TopThreatByCategoryItem {
 	categoryMap := make(map[string]*TopThreatByCategoryItem)
-	
+
 	// Find highest risk threat for each category
 	for _, mt := range mappedThreats {
 		if mt.Threat.StrideProfile != nil {
 			catCode := string(mt.Threat.StrideProfile.PrimaryCategory)
-			
+
 			if existing, exists := categoryMap[catCode]; !exists || mt.RiskScore > existing.RiskScore {
 				categoryMap[catCode] = &TopThreatByCategoryItem{
 					CategoryCode: catCode,
@@ -1875,13 +1818,13 @@ func getTopThreatsByCategory(mappedThreats []mapper.MappedThreat) []TopThreatByC
 			}
 		}
 	}
-	
+
 	// Convert to sorted slice (by risk score descending)
 	result := make([]TopThreatByCategoryItem, 0, len(categoryMap))
 	for _, item := range categoryMap {
 		result = append(result, *item)
 	}
-	
+
 	// Simple bubble sort by risk score (descending)
 	for i := 0; i < len(result)-1; i++ {
 		for j := 0; j < len(result)-i-1; j++ {
@@ -1890,7 +1833,7 @@ func getTopThreatsByCategory(mappedThreats []mapper.MappedThreat) []TopThreatByC
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -2116,314 +2059,4 @@ func init() {
 	semgrepCmd.AddCommand(semgrepStatusCmd)
 	semgrepCmd.AddCommand(semgrepInstallCmd)
 	semgrepCmd.AddCommand(semgrepUninstallCmd)
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Pro Tier Commands: License Management
-// ═══════════════════════════════════════════════════════════════════
-
-var activateCmd = &cobra.Command{
-	Use:   "activate [license-key]",
-	Short: "Activate TITO Pro with a license key",
-	Long: `Activate TITO Pro with a license key or start a 14-day trial.
-
-Examples:
-  tito activate <license-key>    # Activate with purchased license
-  tito activate --trial           # Start 14-day Pro trial (no credit card)`,
-	RunE: runActivate,
-}
-
-func init() {
-	activateCmd.Flags().Bool("trial", false, "Start 14-day Pro trial")
-	activateCmd.Flags().String("email", "", "Email address for trial (optional)")
-}
-
-func runActivate(cmd *cobra.Command, args []string) error {
-	startTrial, _ := cmd.Flags().GetBool("trial")
-	
-	if startTrial {
-		// Activate trial by saving a special "trial" license key
-		fmt.Println("🚀 Starting TITO Pro 14-day trial...")
-		fmt.Println()
-		
-		// Save trial license (will create trial.json on first CheckLicense() call)
-		trialLicense := &license.License{
-			Key:  "trial",
-			Tier: license.TierPro,
-		}
-		
-		if err := license.SaveLicense(trialLicense); err != nil {
-			return fmt.Errorf("failed to save trial license: %w", err)
-		}
-		
-		// Trigger trial creation
-		license.ResetCache()
-		lic, err := license.CheckLicense()
-		if err != nil {
-			return fmt.Errorf("failed to activate trial: %w", err)
-		}
-		
-		fmt.Println("✓ Trial activated successfully!")
-		fmt.Println()
-		fmt.Println("Your 14-day Pro trial includes:")
-		fmt.Println("  ⭐ Drift detection")
-		fmt.Println("  ⭐ 3D visualization")
-		fmt.Println("  ⭐ Full attack paths")
-		fmt.Println("  ⭐ Scan result saving")
-		fmt.Println("  ⭐ PR diff reports")
-		fmt.Println()
-		fmt.Println("Try these commands:")
-		fmt.Println("  tito drift --set-baseline    # Set security baseline")
-		fmt.Println("  tito drift --compare          # Detect drift")
-		fmt.Println("  tito license                  # Check trial status")
-		fmt.Println()
-		
-		// Show expiration
-		if !lic.ExpiresAt.IsZero() {
-			fmt.Printf("Trial expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
-			fmt.Println()
-		}
-		
-		return nil
-	}
-	
-	// Activate with license key
-	if len(args) == 0 {
-		return fmt.Errorf("license key required (or use --trial)")
-	}
-	
-	licenseKey := args[0]
-	
-	fmt.Println("🔐 Activating TITO Pro license...")
-	fmt.Println()
-	
-	// Validate
-	lic, err := license.ValidateLicenseKey(licenseKey)
-	if err != nil {
-		return fmt.Errorf("license validation failed: %w", err)
-	}
-	
-	// Save
-	if err := license.SaveLicense(lic); err != nil {
-		return fmt.Errorf("failed to save license: %w", err)
-	}
-	
-	fmt.Println("✓ License activated successfully!")
-	fmt.Println()
-	
-	// Show license info
-	tierEmoji := map[license.Tier]string{
-		license.TierPro:        "⭐",
-		license.TierTeam:       "👥",
-		license.TierEnterprise: "🏢",
-	}
-	
-	emoji := tierEmoji[lic.Tier]
-	fmt.Printf("%s Tier: %s\n", emoji, lic.Tier)
-	
-	if lic.OrgName != "" {
-		fmt.Printf("Organization: %s\n", lic.OrgName)
-	}
-	
-	if !lic.ExpiresAt.IsZero() {
-		fmt.Printf("Expires: %s\n", lic.ExpiresAt.Format("January 2, 2006"))
-	}
-	
-	fmt.Println()
-	fmt.Println("Run 'tito license' to see full license details.")
-	fmt.Println()
-	
-	return nil
-}
-
-var licenseCmd = &cobra.Command{
-	Use:   "license",
-	Short: "Show current license status",
-	Long:  "Display the current TITO license tier and features",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return license.PrintLicenseStatus()
-	},
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Pro Tier Commands: Drift Detection
-// ═══════════════════════════════════════════════════════════════════
-
-var driftCmd = &cobra.Command{
-	Use:   "drift",
-	Short: "Detect security drift from baseline",
-	Long: `Compare current scan against a baseline to detect security drift.
-
-Drift detection tracks how your security posture changes over time:
-- New threats introduced
-- Mitigations removed
-- Trust boundary violations
-- Attack surface changes
-
-Examples:
-  tito drift --set-baseline         # Save current scan as baseline
-  tito drift --compare              # Compare against baseline
-  tito drift --trend                # Show risk trend over time
-  tito drift --baseline main.json --current feature.json  # Compare two scans`,
-	RunE: runDrift,
-}
-
-func init() {
-	driftCmd.Flags().Bool("set-baseline", false, "Save current scan as baseline")
-	driftCmd.Flags().String("baseline-name", "default", "Baseline name (for managing multiple baselines)")
-	driftCmd.Flags().Bool("compare", false, "Compare current scan against baseline")
-	driftCmd.Flags().String("baseline", "", "Path to baseline scan file (.tito.json)")
-	driftCmd.Flags().String("current", "", "Path to current scan file (.tito.json)")
-	driftCmd.Flags().Bool("trend", false, "Show security posture trend over time")
-	driftCmd.Flags().Int("days", 30, "Number of days of history to analyze for trend")
-	driftCmd.Flags().Bool("list-baselines", false, "List available baselines")
-	driftCmd.Flags().StringP("repo", "r", "", "Repository URL to scan")
-	driftCmd.Flags().StringP("branch", "b", "main", "Branch to scan")
-}
-
-func runDrift(cmd *cobra.Command, args []string) error {
-	// Check Pro license
-	if !license.RequireProOrUpgrade("Drift Detection") {
-		return nil // Already printed upgrade message
-	}
-	
-	setBaseline, _ := cmd.Flags().GetBool("set-baseline")
-	baselineName, _ := cmd.Flags().GetString("baseline-name")
-	compare, _ := cmd.Flags().GetBool("compare")
-	baselinePath, _ := cmd.Flags().GetString("baseline")
-	currentPath, _ := cmd.Flags().GetString("current")
-	showTrend, _ := cmd.Flags().GetBool("trend")
-	trendDays, _ := cmd.Flags().GetInt("days")
-	listBaselines, _ := cmd.Flags().GetBool("list-baselines")
-	repoURL, _ := cmd.Flags().GetString("repo")
-	branch, _ := cmd.Flags().GetString("branch")
-	
-	detector := drift.NewDriftDetector()
-	history := drift.NewScanHistory()
-	
-	// List baselines
-	if listBaselines {
-		fmt.Println("📋 Available Baselines:")
-		baselines, err := detector.ListBaselines()
-		if err != nil {
-			return err
-		}
-		
-		if len(baselines) == 0 {
-			fmt.Println("  (none)")
-			fmt.Println()
-			fmt.Println("Create a baseline:")
-			fmt.Println("  tito drift --set-baseline --repo <url>")
-			return nil
-		}
-		
-		for _, name := range baselines {
-			fmt.Printf("  • %s\n", name)
-		}
-		fmt.Println()
-		return nil
-	}
-	
-	// Show trend
-	if showTrend {
-		fmt.Printf("📈 Analyzing security posture trend (%d days)...\n", trendDays)
-		fmt.Println()
-		
-		trend, err := history.GetTrend(trendDays)
-		if err != nil {
-			return fmt.Errorf("failed to get trend: %w", err)
-		}
-		
-		drift.PrintTrend(trend)
-		return nil
-	}
-	
-	// Set baseline
-	if setBaseline {
-		// Need to scan first
-		if repoURL == "" {
-			return fmt.Errorf("--repo required for setting baseline")
-		}
-		
-		fmt.Println("🔍 Scanning repository to set baseline...")
-		scanResult, err := performScan(repoURL, branch, "baseline")
-		if err != nil {
-			return fmt.Errorf("scan failed: %w", err)
-		}
-		
-		// Save as baseline
-		if err := detector.SetBaseline(scanResult, baselineName); err != nil {
-			return err
-		}
-		
-		// Also save to history
-		if err := history.SaveScan(scanResult); err != nil {
-			fmt.Printf("⚠️  Warning: Failed to save to history: %v\n", err)
-		}
-		
-		fmt.Println()
-		fmt.Println("💡 Next steps:")
-		fmt.Println("  tito drift --compare --repo <url>    # Compare future scans")
-		fmt.Println()
-		
-		return nil
-	}
-	
-	// Compare against baseline
-	if compare {
-		var baselineScan, currentScan *scan.ScanResult
-		var err error
-		
-		// Load baseline
-		if baselinePath != "" {
-			baselineScan, err = scan.LoadResult(baselinePath)
-		} else {
-			baselineScan, err = detector.LoadBaseline(baselineName)
-		}
-		
-		if err != nil {
-			return fmt.Errorf("failed to load baseline: %w (use --set-baseline first)", err)
-		}
-		
-		// Load/scan current
-		if currentPath != "" {
-			currentScan, err = scan.LoadResult(currentPath)
-			if err != nil {
-				return fmt.Errorf("failed to load current scan: %w", err)
-			}
-		} else {
-			if repoURL == "" {
-				return fmt.Errorf("--repo required for drift comparison")
-			}
-			
-			fmt.Println("🔍 Scanning current state...")
-			currentScan, err = performScan(repoURL, branch, "current")
-			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
-			}
-			
-			// Save to history
-			if err := history.SaveScan(currentScan); err != nil {
-				fmt.Printf("⚠️  Warning: Failed to save to history: %v\n", err)
-			}
-		}
-		
-		// Compare
-		fmt.Println("🔍 Analyzing drift...")
-		report := detector.Compare(currentScan, baselineScan)
-		
-		drift.PrintDriftReport(report)
-		
-		// Exit code based on drift score
-		if report.DriftScore >= 70 {
-			os.Exit(2) // Critical drift
-		} else if report.DriftScore >= 50 {
-			os.Exit(1) // High drift
-		}
-		
-		return nil
-	}
-	
-	// Default: show help
-	return cmd.Help()
 }
