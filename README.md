@@ -456,6 +456,24 @@ tito api            Start the TITO API server
 tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)
 ```
 
+## TITO Pro
+
+Want advanced features? **TITO Pro** adds:
+
+| Feature | Description |
+|---------|-------------|
+| `tito drift` | Security drift detection — track posture changes over time |
+| `tito sbom` | SBOM → Threat Model — import CycloneDX/SPDX, generate threats |
+| `tito fix` | Auto-remediation — PR-ready code patches for threats |
+| `tito org` | Multi-repo org scan — cross-service attack path analysis |
+| `--exec-summary` | LLM executive summaries — board-ready reports via GPT-4/Claude |
+
+**Pricing:** Pro $49/mo · Team $29/user/mo · Enterprise custom
+
+Coming soon — [join the waitlist](https://buymeacoffee.com/stevenleath) to get notified.
+
+---
+
 ## Support
 
 If TITO saves you time, consider buying me a coffee:
