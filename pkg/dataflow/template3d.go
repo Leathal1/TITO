@@ -120,16 +120,16 @@ const htmlTemplate3D = `<!DOCTYPE html>
 
         /* Controls */
         #controls {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
             left: 20px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 12px;
             padding: 20px;
-            z-index: 100;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             pointer-events: auto;
         }
 
@@ -140,17 +140,19 @@ const htmlTemplate3D = `<!DOCTYPE html>
         }
 
         button {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 10px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 20px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
-            margin: 5px 0;
-            width: 200px;
+            font-size: 13px;
+            margin: 8px 0;
+            width: 220px;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 600;
+            display: block;
+            text-align: left;
         }
 
         button:hover {
