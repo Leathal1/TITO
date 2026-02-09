@@ -138,6 +138,26 @@ const htmlTemplate3D = `<!DOCTYPE html>
             color: #ffffff;
             margin-bottom: 12px;
         }
+        
+        #controls button {
+            background: rgba(255, 255, 255, 0.15) !important;
+            color: #ffffff !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            padding: 12px 20px !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 13px !important;
+            margin: 8px 0 !important;
+            width: 220px !important;
+            font-weight: 600 !important;
+            display: block !important;
+            text-align: left !important;
+        }
+        
+        #controls button:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
+            border-color: #58a6ff !important;
+        }
 
         button {
             background: rgba(255, 255, 255, 0.15);
