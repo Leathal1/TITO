@@ -916,13 +916,13 @@ const htmlTemplate3D = `<!DOCTYPE html>
             }
         };
 
-        function closeAttackPathsPanel() {
+        window.closeAttackPathsPanel = function() {
             document.getElementById('attack-paths-panel').style.display = 'none';
             clearAttackPathHighlight();
-        }
+        };
         window.closeAttackPathsPanel = closeAttackPathsPanel;
 
-        function initializeAttackPathsPanel() {
+        window.initializeAttackPathsPanel = function() {
             const list = document.getElementById('attack-paths-list');
             if (!attackPaths || attackPaths.length === 0) {
                 list.innerHTML = '<div style="color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">No attack paths found</div>';
@@ -959,7 +959,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             list.innerHTML = html;
         }
 
-        function selectAttackPath(index) {
+        window.selectAttackPath = function(index) {
             currentAttackPath = index;
             
             // Update active state
@@ -968,15 +968,14 @@ const htmlTemplate3D = `<!DOCTYPE html>
             });
 
             // Highlight path on graph
-            highlightAttackPath(attackPaths[index]);
-        }
-        window.selectAttackPath = selectAttackPath;
+            window.highlightAttackPath(attackPaths[index]);
+        };
 
-        function highlightAttackPath(path) {
+        window.highlightAttackPath = function(path) {
             if (!path || !path.steps) return;
 
             // Clear previous highlights
-            clearAttackPathHighlight();
+            window.clearAttackPathHighlight();
 
             // Collect nodes and links in path
             const pathNodeIds = new Set();
@@ -990,54 +989,54 @@ const htmlTemplate3D = `<!DOCTYPE html>
             });
 
             // Highlight nodes - set a property the graph can read
-            graphData.nodes.forEach(node => {
+            window.graphData.nodes.forEach(node => {
                 node.__inAttackPath = pathNodeIds.has(node.id);
                 node.__isEntryPoint = node.id === path.entryPoint;
                 node.__isTarget = node.id === path.target;
             });
 
             // Highlight links
-            graphData.links.forEach(link => {
+            window.graphData.links.forEach(link => {
                 const linkId = link.source.id ? link.source.id + '-' + link.target.id : link.source + '-' + link.target;
                 link.__inAttackPath = pathLinkIds.has(linkId);
             });
 
             // Force graph update
-            Graph.nodeColor(node => {
+            window.Graph.nodeColor(node => {
                 if (node.__isEntryPoint) return '#00ff00';
                 if (node.__isTarget) return '#ff0040';
                 if (node.__inAttackPath) return '#ff4444';
                 return riskConfig[node.riskLevel]?.color || 0x888888;
             });
 
-            Graph.linkColor(link => {
+            window.Graph.linkColor(link => {
                 if (link.__inAttackPath) return '#ff4444';
                 return link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)';
             });
 
-            Graph.linkWidth(link => link.__inAttackPath ? 4 : 1);
-            Graph.linkDirectionalParticles(link => link.__inAttackPath ? 8 : (window.particlesVisible ? 2 : 0));
-            Graph.linkDirectionalParticleSpeed(link => link.__inAttackPath ? 0.01 : 0.005);
-        }
+            window.Graph.linkWidth(link => link.__inAttackPath ? 4 : 1);
+            window.Graph.linkDirectionalParticles(link => link.__inAttackPath ? 8 : (window.particlesVisible ? 2 : 0));
+            window.Graph.linkDirectionalParticleSpeed(link => link.__inAttackPath ? 0.01 : 0.005);
+        };
 
-        function clearAttackPathHighlight() {
-            graphData.nodes.forEach(node => {
+        window.clearAttackPathHighlight = function() {
+            window.graphData.nodes.forEach(node => {
                 node.__inAttackPath = false;
                 node.__isEntryPoint = false;
                 node.__isTarget = false;
             });
 
-            graphData.links.forEach(link => {
+            window.graphData.links.forEach(link => {
                 link.__inAttackPath = false;
             });
 
             // Reset colors
-            Graph.nodeColor(node => riskConfig[node.riskLevel]?.color || 0x888888);
-            Graph.linkColor(link => link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)');
-            Graph.linkWidth(1);
-            Graph.linkDirectionalParticles(link => window.particlesVisible ? 2 : 0);
-            Graph.linkDirectionalParticleSpeed(0.005);
-        }
+            window.Graph.nodeColor(node => riskConfig[node.riskLevel]?.color || 0x888888);
+            window.Graph.linkColor(link => link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)');
+            window.Graph.linkWidth(1);
+            window.Graph.linkDirectionalParticles(link => window.particlesVisible ? 2 : 0);
+            window.Graph.linkDirectionalParticleSpeed(0.005);
+        };
 
         function getRiskLevel(score) {
             if (score >= 8.0) return 'CRITICAL';
