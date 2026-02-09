@@ -453,12 +453,12 @@ const htmlTemplate3D = `<!DOCTYPE html>
 
     <div id="controls">
         <h2>⚙️ Controls</h2>
-        <button id="reset-camera">🎯 Reset Camera</button>
-        <button id="toggle-labels">🏷️ Toggle Labels</button>
-        <button id="toggle-boundaries">🛡️ Toggle Boundaries</button>
-        <button id="toggle-particles">✨ Toggle Particles</button>
-        <button id="toggle-attack-paths">⚔️ Show Attack Paths</button>
-        <button id="export-screenshot">📸 Export Screenshot</button>
+        <button onclick="resetCamera()">🎯 Reset Camera</button>
+        <button onclick="toggleLabels()">🏷️ Toggle Labels</button>
+        <button onclick="toggleBoundaries()">🛡️ Toggle Boundaries</button>
+        <button onclick="toggleParticles()">✨ Toggle Particles</button>
+        <button onclick="toggleAttackPaths()">⚔️ Show Attack Paths</button>
+        <button onclick="exportScreenshot()">📸 Export Screenshot</button>
     </div>
 
     <div id="info-panel">
@@ -645,11 +645,8 @@ const htmlTemplate3D = `<!DOCTYPE html>
             Graph.tickFrame();
         }
 
-        // Initialize controls after Graph is ready
-        setTimeout(() => {
-            console.log('Initializing controls...');
-            initializeControls();
-        }, 100);
+        // Controls are now inline onclick handlers - no initialization needed
+        console.log('TITO 3D Visualization Ready - buttons should work');
 
         // Helper functions
         function createTextSprite(text) {
@@ -834,23 +831,18 @@ const htmlTemplate3D = `<!DOCTYPE html>
         }
         window.closeInfoPanel = closeInfoPanel;
 
-        // Controls initialization function
-        function initializeControls() {
-            console.log('Controls function called');
-            const resetBtn = document.getElementById('reset-camera');
-            console.log('Reset button:', resetBtn);
-            if (resetBtn) {
-                resetBtn.addEventListener('click', () => {
-                    console.log('Reset camera clicked!');
-                    Graph.cameraPosition(
-                        { x: 0, y: 0, z: 400 },
-                        { x: 0, y: 0, z: 0 },
-                        1000
-                    );
-                });
-            }
+        // Global control functions (called from inline onclick)
+        window.resetCamera = function() {
+            console.log('Reset camera clicked!');
+            Graph.cameraPosition(
+                { x: 0, y: 0, z: 400 },
+                { x: 0, y: 0, z: 0 },
+                1000
+            );
+        };
 
-        document.getElementById('toggle-labels').addEventListener('click', () => {
+        window.toggleLabels = function() {
+            console.log('Toggle labels clicked!');
             labelsVisible = !labelsVisible;
             graphData.nodes.forEach(node => {
                 const obj = Graph.nodeThreeObject(node);
@@ -858,19 +850,22 @@ const htmlTemplate3D = `<!DOCTYPE html>
                     obj.userData.labelSprite.visible = labelsVisible;
                 }
             });
-        });
+        };
 
-        document.getElementById('toggle-boundaries').addEventListener('click', () => {
+        window.toggleBoundaries = function() {
+            console.log('Toggle boundaries clicked!');
             boundariesVisible = !boundariesVisible;
             // Would toggle boundary visibility here
-        });
+        };
 
-        document.getElementById('toggle-particles').addEventListener('click', () => {
+        window.toggleParticles = function() {
+            console.log('Toggle particles clicked!');
             particlesVisible = !particlesVisible;
             Graph.linkDirectionalParticles(link => particlesVisible ? 2 : 0);
-        });
+        };
 
-        document.getElementById('export-screenshot').addEventListener('click', () => {
+        window.exportScreenshot = function() {
+            console.log('Export screenshot clicked!');
             const renderer = Graph.renderer();
             const canvas = renderer.domElement;
             const dataURL = canvas.toDataURL('image/png');
@@ -878,18 +873,17 @@ const htmlTemplate3D = `<!DOCTYPE html>
             link.download = 'tito-3d-threat-model.png';
             link.href = dataURL;
             link.click();
-        });
+        };
 
-        // Attack paths control
-        document.getElementById('toggle-attack-paths').addEventListener('click', () => {
+        window.toggleAttackPaths = function() {
+            console.log('Toggle attack paths clicked!');
             const panel = document.getElementById('attack-paths-panel');
             const isVisible = panel.style.display !== 'none';
             panel.style.display = isVisible ? 'none' : 'block';
             if (!isVisible && attackPaths && attackPaths.length > 0) {
                 initializeAttackPathsPanel();
             }
-        });
-        }  // End initializeControls
+        };
 
         function closeAttackPathsPanel() {
             document.getElementById('attack-paths-panel').style.display = 'none';
