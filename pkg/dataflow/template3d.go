@@ -23,6 +23,11 @@ const htmlTemplate3D = `<!DOCTYPE html>
         #graph-container {
             width: 100vw;
             height: 100vh;
+            pointer-events: none;
+        }
+        
+        #graph-container canvas {
+            pointer-events: auto;
         }
 
         /* Header */
@@ -636,7 +641,10 @@ const htmlTemplate3D = `<!DOCTYPE html>
         }
 
         // Initialize controls after Graph is ready
-        setTimeout(initializeControls, 100);
+        setTimeout(() => {
+            console.log('Initializing controls...');
+            initializeControls();
+        }, 100);
 
         // Helper functions
         function createTextSprite(text) {
@@ -823,13 +831,19 @@ const htmlTemplate3D = `<!DOCTYPE html>
 
         // Controls initialization function
         function initializeControls() {
-            document.getElementById('reset-camera').addEventListener('click', () => {
-            Graph.cameraPosition(
-                { x: 0, y: 0, z: 400 },
-                { x: 0, y: 0, z: 0 },
-                1000
-            );
-        });
+            console.log('Controls function called');
+            const resetBtn = document.getElementById('reset-camera');
+            console.log('Reset button:', resetBtn);
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    console.log('Reset camera clicked!');
+                    Graph.cameraPosition(
+                        { x: 0, y: 0, z: 400 },
+                        { x: 0, y: 0, z: 0 },
+                        1000
+                    );
+                });
+            }
 
         document.getElementById('toggle-labels').addEventListener('click', () => {
             labelsVisible = !labelsVisible;
