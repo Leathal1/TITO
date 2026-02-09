@@ -4,7 +4,7 @@
 
 <h1 align="center">Threat In, Threat Out</h1>
 
-<p align="center"><strong>The threat modeler that thinks like an attacker.</strong></p>
+<p align="center"><strong>Automated threat modeling for modern development teams.</strong></p>
 
 [![CI](https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Leathal1/TITO?style=flat&color=blue)](https://github.com/Leathal1/TITO/releases)
@@ -13,7 +13,6 @@
 [![Threat Model](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TITO%20Threat%20Model-blue?style=flat&logo=github)](https://github.com/marketplace/actions/tito-threat-model)
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat&logo=docker)](https://ghcr.io/leathal1/tito)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/stevenleath)
 
 Single binary. Point at a repo. Get **attack path analysis**, **3D threat visualization**, **STRIDE-LM + MAESTRO classification**, and **MITRE ATT&CK mappings** — all in one scan.
 
@@ -39,6 +38,44 @@ Every other threat modeling tool makes you draw diagrams by hand. TITO **reads y
 | **Interactive Data Flow** | Yes D3.js + Three.js | Basic | Basic | Basic |
 | **CLI / CI/CD** | Yes Single binary | No GUI only | No Web only | No SaaS |
 | **Runs Anywhere** | Yes Mac/Linux/Windows | Windows only | Browser | Cloud |
+
+---
+
+## AI Agent Security (MAESTRO Framework)
+
+TITO is the **only CLI threat modeling tool** that implements Cloud Security Alliance's MAESTRO framework for agentic AI systems.
+
+As AI agents ship to production with tool access (code execution, database queries, web browsing), traditional threat models miss entire attack classes.
+
+MAESTRO provides 7-layer coverage:
+
+| Layer | Threat Examples |
+|-------|-----------------|
+| **1. Foundation Models** | Prompt injection, jailbreaking, model extraction |
+| **2. Data & Knowledge** | RAG poisoning, embedding attacks, training data manipulation |
+| **3. Agent Frameworks** | LangChain/CrewAI exploits, memory corruption, state manipulation |
+| **4. Tooling & Integration** | MCP server attacks, API abuse, tool poisoning |
+| **5. Agent Communication** | Trust boundary violations, message spoofing, coordination attacks |
+| **6. Deployment & Infrastructure** | Container escapes, sandbox bypasses, resource exhaustion |
+| **7. Ecosystem & Governance** | Compliance gaps, accountability failures, liability exposure |
+
+Enable with `--maestro` flag. Every AI agent codebase scanned gets classified across all 7 layers automatically.
+
+**Why this matters:** Security teams are shipping AI agents without threat models. TITO gives you that visibility in one command.
+
+---
+
+## Who Uses TITO?
+
+**Security Engineers** scanning codebases for threat identification and attack path analysis
+
+**DevSecOps Teams** integrating threat modeling into CI/CD pipelines without manual overhead
+
+**AI/Agent Developers** assessing security posture of agentic systems with MAESTRO framework
+
+**Compliance Teams** mapping threats to regulatory frameworks (PCI DSS, SOC 2, ISO 27001, HIPAA)
+
+**AppSec Researchers** analyzing attack surfaces and multi-step exploit chains
 
 ---
 
@@ -173,20 +210,6 @@ Extended STRIDE with **Lateral Movement** and **Malware** categories. Maps threa
 | **L**ateral Movement | Internal pivoting, trust exploitation |
 | **M**alware | Supply chain attacks, code injection |
 
-### MAESTRO (Agentic AI Security)
-
-Cloud Security Alliance's 7-layer framework for AI agent threat modeling — the only CLI tool that implements it:
-
-| Layer | Focus |
-|-------|-------|
-| 1. Foundation Models | Prompt injection, jailbreaking, model theft |
-| 2. Data & Knowledge | RAG poisoning, embedding attacks |
-| 3. Agent Frameworks | LangChain/CrewAI exploits, memory manipulation |
-| 4. Tooling & Integration | MCP attacks, API abuse, tool poisoning |
-| 5. Agent Communication | Trust exploitation, message spoofing |
-| 6. Deployment & Infra | Container escapes, sandbox bypasses |
-| 7. Ecosystem & Governance | Compliance gaps, accountability |
-
 ### Semgrep + MITRE ATT&CK
 
 - Runs **Semgrep** static analysis and maps findings to STRIDE-LM categories via CWE mappings
@@ -215,7 +238,18 @@ Key findings included hardcoded credentials, unauthenticated payment APIs, and a
 
 ---
 
-## Features
+## Production Ready
+
+- ✅ **Single binary** — No runtime dependencies (except optional Semgrep)
+- ✅ **Fast scans** — JoonaPay (655 assets, 5,205 flows) analyzed in ~45 seconds
+- ✅ **CI/CD native** — Exit codes, SARIF output, PR comment integration
+- ✅ **Docker images** — Pre-built for `amd64` and `arm64` architectures
+- ✅ **Offline capable** — Works in air-gapped environments
+- ✅ **Cross-platform** — macOS, Linux, Windows binaries via GoReleaser
+
+---
+
+## All Features
 
 - Repository scanning & asset discovery
 - STRIDE-LM threat classification
@@ -456,29 +490,33 @@ tito api            Start the TITO API server
 tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)
 ```
 
-## TITO Pro
-
-Want advanced features? **TITO Pro** adds:
-
-| Feature | Description |
-|---------|-------------|
-| `tito drift` | Security drift detection — track posture changes over time |
-| `tito sbom` | SBOM → Threat Model — import CycloneDX/SPDX, generate threats |
-| `tito fix` | Auto-remediation — PR-ready code patches for threats |
-| `tito org` | Multi-repo org scan — cross-service attack path analysis |
-| `--exec-summary` | LLM executive summaries — board-ready reports via GPT-4/Claude |
-
-**Pricing:** Pro $49/mo · Team $29/user/mo · Enterprise custom
-
-Coming soon — [join the waitlist](https://buymeacoffee.com/stevenleath) to get notified.
-
 ---
 
-## Support
+## Enterprise Support & TITO Pro
 
-If TITO saves you time, consider buying me a coffee:
+TITO is open source (MIT license). For enterprise deployments, continuous monitoring, or organizational-scale scanning, **TITO Pro** is available with premium features:
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/stevenleath)
+- **Multi-repo organization scanning** with cross-service attack paths
+- **Security drift detection** — track threat model changes over time
+- **SBOM → threat model** — CycloneDX/SPDX import
+- **Auto-remediation** — PR-ready code patches
+- **Executive summaries** — LLM-generated board-ready reports
+- **Live CVE/NVD intelligence** — real-time vulnerability enrichment
+
+### Contact
+
+📧 **Email:** [steven.leath@gmail.com](mailto:steven.leath@gmail.com)  
+🐦 **Twitter:** [@gorillainfosec](https://x.com/gorillainfosec)  
+💼 **LinkedIn:** [Steven Leath](https://lnkd.in/gijeZ7nJ)
+
+**Available for:**
+- Custom MAESTRO rule development
+- On-premise deployment consulting
+- Integration with enterprise SIEM/SOAR platforms
+- Security architecture advisory
+- Training & workshops
+
+---
 
 ## Contributing
 
@@ -491,5 +529,9 @@ MIT
 ---
 
 <p align="center">
-  <i>Built by <a href="https://x.com/gorillainfosec">@gorillainfosec</a> — "The best defense is built by those who truly understand offense."</i>
+  <i>Built by a security engineer for security engineers. Open source. Production-ready.</i>
+</p>
+
+<p align="center">
+  <i>"The best defense is built by those who truly understand offense." — <a href="https://x.com/gorillainfosec">@gorillainfosec</a></i>
 </p>
