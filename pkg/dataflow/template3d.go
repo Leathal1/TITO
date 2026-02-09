@@ -673,6 +673,9 @@ const htmlTemplate3D = `<!DOCTYPE html>
             Graph.tickFrame();
         }
 
+        // Hide loading message
+        document.getElementById('loading').style.display = 'none';
+
         // Controls are now inline onclick handlers - no initialization needed
         console.log('TITO 3D Visualization Ready - buttons should work');
 
