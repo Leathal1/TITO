@@ -525,11 +525,14 @@ const htmlTemplate3D = `<!DOCTYPE html>
                 encrypted: edge.encrypted
             }))
         };
+        
+        // Make data globally accessible for button handlers
+        window.graphData = graphData;
 
-        // Configuration
-        let labelsVisible = true;
-        let boundariesVisible = true;
-        let particlesVisible = true;
+        // Configuration (make globally accessible for button handlers)
+        window.labelsVisible = true;
+        window.boundariesVisible = true;
+        window.particlesVisible = true;
         let currentAttackPath = null;
         let attackPathParticles = [];
         let autoRotate = true;
@@ -569,7 +572,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
                 }
                 
                 // Add label
-                if (labelsVisible) {
+                if (window.labelsVisible) {
                     const sprite = createTextSprite(node.label);
                     sprite.position.y = config.size + 15;
                     sphere.add(sprite);
@@ -581,7 +584,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             .linkWidth(2)
             .linkColor(link => link.sensitive ? '#ff0040' : '#4488ff')
             .linkOpacity(0.6)
-            .linkDirectionalParticles(link => particlesVisible ? 2 : 0)
+            .linkDirectionalParticles(link => window.particlesVisible ? 2 : 0)
             .linkDirectionalParticleSpeed(0.005)
             .linkDirectionalParticleWidth(2)
             .linkDirectionalParticleColor(link => link.sensitive ? '#ff0040' : '#4488ff')
@@ -602,6 +605,9 @@ const htmlTemplate3D = `<!DOCTYPE html>
             .d3Force('charge').strength(-120);
         
         Graph.d3Force('link').distance(100);
+        
+        // Make Graph globally accessible for button onclick handlers
+        window.Graph = Graph;
 
         // Add stars background
         addStarField();
@@ -856,7 +862,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
         // Global control functions (called from inline onclick)
         window.resetCamera = function() {
             console.log('Reset camera clicked!');
-            Graph.cameraPosition(
+            window.Graph.cameraPosition(
                 { x: 0, y: 0, z: 400 },
                 { x: 0, y: 0, z: 0 },
                 1000
@@ -865,30 +871,30 @@ const htmlTemplate3D = `<!DOCTYPE html>
 
         window.toggleLabels = function() {
             console.log('Toggle labels clicked!');
-            labelsVisible = !labelsVisible;
-            graphData.nodes.forEach(node => {
-                const obj = Graph.nodeThreeObject(node);
+            window.labelsVisible = !window.labelsVisible;
+            window.graphData.nodes.forEach(node => {
+                const obj = window.Graph.nodeThreeObject(node);
                 if (obj && obj.userData.labelSprite) {
-                    obj.userData.labelSprite.visible = labelsVisible;
+                    obj.userData.labelSprite.visible = window.labelsVisible;
                 }
             });
         };
 
         window.toggleBoundaries = function() {
             console.log('Toggle boundaries clicked!');
-            boundariesVisible = !boundariesVisible;
+            window.boundariesVisible = !window.boundariesVisible;
             // Would toggle boundary visibility here
         };
 
         window.toggleParticles = function() {
             console.log('Toggle particles clicked!');
-            particlesVisible = !particlesVisible;
-            Graph.linkDirectionalParticles(link => particlesVisible ? 2 : 0);
+            window.particlesVisible = !window.particlesVisible;
+            window.Graph.linkDirectionalParticles(link => window.particlesVisible ? 2 : 0);
         };
 
         window.exportScreenshot = function() {
             console.log('Export screenshot clicked!');
-            const renderer = Graph.renderer();
+            const renderer = window.Graph.renderer();
             const canvas = renderer.domElement;
             const dataURL = canvas.toDataURL('image/png');
             const link = document.createElement('a');
@@ -1007,7 +1013,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             });
 
             Graph.linkWidth(link => link.__inAttackPath ? 4 : 1);
-            Graph.linkDirectionalParticles(link => link.__inAttackPath ? 8 : (particlesVisible ? 2 : 0));
+            Graph.linkDirectionalParticles(link => link.__inAttackPath ? 8 : (window.particlesVisible ? 2 : 0));
             Graph.linkDirectionalParticleSpeed(link => link.__inAttackPath ? 0.01 : 0.005);
         }
 
@@ -1026,7 +1032,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             Graph.nodeColor(node => riskConfig[node.riskLevel]?.color || 0x888888);
             Graph.linkColor(link => link.sensitive ? 'rgba(255, 100, 100, 0.4)' : 'rgba(100, 100, 100, 0.3)');
             Graph.linkWidth(1);
-            Graph.linkDirectionalParticles(link => particlesVisible ? 2 : 0);
+            Graph.linkDirectionalParticles(link => window.particlesVisible ? 2 : 0);
             Graph.linkDirectionalParticleSpeed(0.005);
         }
 
