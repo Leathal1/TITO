@@ -496,8 +496,8 @@ const htmlTemplate3D = `<!DOCTYPE html>
         <div id="attack-paths-list"></div>
     </div>
 
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/3d-force-graph@1.74.0/dist/3d-force-graph.min.js"></script>
+    <script src="https://unpkg.com/three@0.152.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
 
     <script>
 
