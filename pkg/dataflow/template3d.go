@@ -635,6 +635,9 @@ const htmlTemplate3D = `<!DOCTYPE html>
             Graph.tickFrame();
         }
 
+        // Initialize controls after Graph is ready
+        setTimeout(initializeControls, 100);
+
         // Helper functions
         function createTextSprite(text) {
             const canvas = document.createElement('canvas');
@@ -818,8 +821,9 @@ const htmlTemplate3D = `<!DOCTYPE html>
         }
         window.closeInfoPanel = closeInfoPanel;
 
-        // Controls
-        document.getElementById('reset-camera').addEventListener('click', () => {
+        // Controls initialization function
+        function initializeControls() {
+            document.getElementById('reset-camera').addEventListener('click', () => {
             Graph.cameraPosition(
                 { x: 0, y: 0, z: 400 },
                 { x: 0, y: 0, z: 0 },
@@ -866,6 +870,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
                 initializeAttackPathsPanel();
             }
         });
+        }  // End initializeControls
 
         function closeAttackPathsPanel() {
             document.getElementById('attack-paths-panel').style.display = 'none';
