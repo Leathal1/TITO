@@ -42,6 +42,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             padding: 20px 30px;
             z-index: 100;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
         }
 
         #header h1 {
@@ -69,6 +70,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             z-index: 100;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             min-width: 280px;
+            pointer-events: auto;
         }
 
         #overview h2 {
@@ -128,6 +130,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             padding: 20px;
             z-index: 100;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
         }
 
         #controls h2 {
@@ -179,6 +182,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             max-height: 70vh;
             overflow-y: auto;
             display: none;
+            pointer-events: auto;
         }
 
         #info-panel.visible {
@@ -328,6 +332,7 @@ const htmlTemplate3D = `<!DOCTYPE html>
             max-width: 400px;
             max-height: 70vh;
             overflow-y: auto;
+            pointer-events: auto;
         }
 
         .attack-path-item {
