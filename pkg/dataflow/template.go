@@ -16,8 +16,8 @@ const htmlTemplate = `<!DOCTYPE html>
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-            background: #0a0e27;
-            color: #e6edf3;
+            background: #060a1a;
+            color: #e8edf5;
             overflow: hidden;
             position: relative;
         }
@@ -84,7 +84,7 @@ const htmlTemplate = `<!DOCTYPE html>
         .header-logo {
             font-size: 24px;
             font-weight: 700;
-            background: linear-gradient(135deg, #58a6ff 0%, #79c0ff 100%);
+            background: linear-gradient(135deg, #4488ff 0%, #2860cc 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -203,19 +203,19 @@ const htmlTemplate = `<!DOCTYPE html>
 
         /* Risk-based color coding with glows */
         .node.critical circle {
-            fill: rgba(248, 81, 73, 0.2);
-            stroke: #f85149;
+            fill: rgba(255, 39, 64, 0.2);
+            stroke: #ff2740;
             backdrop-filter: blur(10px);
         }
 
         .node.critical:hover circle,
         .node.critical.selected circle {
-            filter: drop-shadow(0 0 20px #f85149) brightness(1.3);
+            filter: drop-shadow(0 0 20px #ff2740) brightness(1.3);
         }
 
         .node.high circle {
-            fill: rgba(255, 140, 0, 0.2);
-            stroke: #ff8c00;
+            fill: rgba(255, 140, 66, 0.2);
+            stroke: #ff8c42;
         }
 
         .node.high:hover circle,
@@ -224,8 +224,8 @@ const htmlTemplate = `<!DOCTYPE html>
         }
 
         .node.medium circle {
-            fill: rgba(255, 215, 0, 0.2);
-            stroke: #ffd700;
+            fill: rgba(255, 210, 63, 0.2);
+            stroke: #ffd23f;
         }
 
         .node.medium:hover circle,
@@ -234,8 +234,8 @@ const htmlTemplate = `<!DOCTYPE html>
         }
 
         .node.low circle {
-            fill: rgba(63, 185, 80, 0.2);
-            stroke: #3fb950;
+            fill: rgba(0, 212, 170, 0.2);
+            stroke: #00d4aa;
         }
 
         .node.low:hover circle,

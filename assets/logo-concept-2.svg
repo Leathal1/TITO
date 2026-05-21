@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e27"/>
+      <stop offset="100%" stop-color="#120a24"/>
+    </linearGradient>
+    <linearGradient id="facet1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0c6e"/>
+      <stop offset="100%" stop-color="#6b1fa0"/>
+    </linearGradient>
+    <linearGradient id="facet2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5a1570"/>
+      <stop offset="100%" stop-color="#a02060"/>
+    </linearGradient>
+    <linearGradient id="facet3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7b1a40"/>
+      <stop offset="100%" stop-color="#c03040"/>
+    </linearGradient>
+    <linearGradient id="facet4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a02060"/>
+      <stop offset="100%" stop-color="#d03030"/>
+    </linearGradient>
+    <linearGradient id="facet5" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2a0850"/>
+      <stop offset="100%" stop-color="#5a1570"/>
+    </linearGradient>
+    <linearGradient id="facet6" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d03030"/>
+      <stop offset="100%" stop-color="#8a1040"/>
+    </linearGradient>
+    <linearGradient id="facet7" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4a1070"/>
+      <stop offset="100%" stop-color="#8a2060"/>
+    </linearGradient>
+    <linearGradient id="facet8" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c02040"/>
+      <stop offset="100%" stop-color="#e04020"/>
+    </linearGradient>
+    <linearGradient id="edgeGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9060ff" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#ff4060" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ff2020" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="wordGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c8a0ff"/>
+      <stop offset="30%" stop-color="#d070ff"/>
+      <stop offset="60%" stop-color="#ff6080"/>
+      <stop offset="100%" stop-color="#ff4040"/>
+    </linearGradient>
+    <filter id="bevel">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="wordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e0d0ff"/>
+      <stop offset="50%" stop-color="#f0a0d0"/>
+      <stop offset="100%" stop-color="#ff8090"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="300" fill="url(#bgGrad)" rx="4"/>
+
+  <!-- Subtle angular background elements -->
+  <g opacity="0.04">
+    <polygon points="0,300 50,0 150,300" fill="#ff4040"/>
+    <polygon points="600,300 700,0 800,300" fill="#9060ff"/>
+  </g>
+
+  <!-- Icon group - Kill Chain T (faceted 3D) -->
+  <g transform="translate(35, 30)">
+
+    <!-- Horizontal bar of T - faceted -->
+    <!-- Top face -->
+    <polygon points="20,35 60,30 100,35 140,30 180,35 220,30 260,35 260,55 220,60 180,55 140,60 100,55 60,60 20,55" fill="url(#facet1)" filter="url(#bevel)"/>
+    <!-- Left bevel -->
+    <polygon points="20,55 20,35 15,40 15,60" fill="url(#facet5)"/>
+    <!-- Right bevel -->
+    <polygon points="260,35 260,55 265,60 265,40" fill="url(#facet2)"/>
+    <!-- Top highlight strip -->
+    <polygon points="20,35 60,30 100,35 140,30 180,35 220,30 260,35 260,40 220,35 180,40 140,35 100,40 60,35 20,40" fill="url(#facet2)" opacity="0.5"/>
+
+    <!-- Vertical stem of T - faceted -->
+    <!-- Main stem -->
+    <polygon points="120,55 140,60 140,260 120,255" fill="url(#facet3)" filter="url(#bevel)"/>
+    <!-- Left bevel -->
+    <polygon points="100,60 120,55 120,255 100,260" fill="url(#facet5)"/>
+    <!-- Right bevel -->
+    <polygon points="140,60 160,55 160,250 140,260" fill="url(#facet4)"/>
+    <!-- Center highlight -->
+    <polygon points="120,55 140,60 140,260 120,255" fill="url(#facet7)" opacity="0.3"/>
+
+    <!-- Top connector (bridge between bar and stem) -->
+    <polygon points="100,35 60,30 60,35 100,40" fill="url(#facet2)" opacity="0.6"/>
+
+    <!-- Attack path lines/arrows overlaying the T -->
+    <g opacity="0.3">
+      <line x1="60" y1="30" x2="260" y2="35" stroke="#ff6080" stroke-width="1"/>
+      <line x1="140" y1="60" x2="140" y2="260" stroke="#ff4060" stroke-width="1"/>
+
+      <!-- Arrow heads along the path -->
+      <polygon points="230,33 240,35 230,37" fill="#ff6080"/>
+      <polygon points="138,150 141,140 144,150" fill="#ff4060"/>
+      <polygon points="138,200 141,190 144,200" fill="#ff4060"/>
+    </g>
+
+    <!-- Edge glow around the entire T -->
+    <g fill="none" stroke="url(#edgeGlow)" stroke-width="2" opacity="0.5" filter="url(#bevel)">
+      <polygon points="20,35 60,30 100,35 140,30 180,35 220,30 260,35 260,55 220,60 180,55 140,60 100,55 60,60 20,55"/>
+      <polygon points="100,60 120,55 120,255 100,260"/>
+      <polygon points="140,60 160,55 160,250 140,260"/>
+    </g>
+
+    <!-- Facet edge lines (sharp geometric look) -->
+    <g stroke="#ff80a0" stroke-width="0.5" opacity="0.15">
+      <line x1="60" y1="30" x2="60" y2="60"/>
+      <line x1="100" y1="35" x2="100" y2="55"/>
+      <line x1="180" y1="55" x2="180" y2="35"/>
+      <line x1="220" y1="30" x2="220" y2="60"/>
+    </g>
+  </g>
+
+  <!-- Wordmark "TITO" -->
+  <g transform="translate(280, 60)">
+    <text x="0" y="110" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="700" letter-spacing="12" fill="url(#wordGrad)">
+      TITO
+    </text>
+    <!-- Angular underline -->
+    <polygon points="5,125 375,122 375,127 5,130" fill="url(#facet4)" opacity="0.5"/>
+    <!-- Tagline -->
+    <text x="5" y="152" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="300" letter-spacing="8" fill="#ff6080" opacity="0.5">
+      THREAT IN · THREAT OUT
+    </text>
+  </g>
+</svg>

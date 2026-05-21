@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+  <defs>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#00f0ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6bf7ff" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#00c8ff" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#00c8ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0080ff" stop-opacity="0.6"/>
+      <stop offset="60%" stop-color="#0060ff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0060ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="bigGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="wordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e0f7ff"/>
+      <stop offset="50%" stop-color="#b0efff"/>
+      <stop offset="100%" stop-color="#80e5ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="300" fill="#0a0e27" rx="4"/>
+
+  <!-- Subtle grid lines -->
+  <g stroke="#141c4a" stroke-width="0.5" opacity="0.3">
+    <line x1="0" y1="50" x2="800" y2="50"/>
+    <line x1="0" y1="100" x2="800" y2="100"/>
+    <line x1="0" y1="150" x2="800" y2="150"/>
+    <line x1="0" y1="200" x2="800" y2="200"/>
+    <line x1="0" y1="250" x2="800" y2="250"/>
+  </g>
+
+  <!-- Icon group - Constellation T -->
+  <g transform="translate(30, 25)">
+
+    <!-- Node positions forming a T shape with scatter -->
+    <!-- Horizontal bar of T (top) -->
+    <circle cx="30" cy="45" r="2.5" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="55" cy="42" r="3" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="85" cy="38" r="2" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="110" cy="44" r="3.5" fill="#6bf7ff" filter="url(#nodeGlow)"/>
+    <circle cx="140" cy="40" r="2.5" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="165" cy="46" r="2" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="190" cy="39" r="3" fill="#6bf7ff" filter="url(#nodeGlow)"/>
+    <circle cx="215" cy="43" r="2.5" fill="#00f0ff" filter="url(#nodeGlow)"/>
+
+    <!-- Vertical stem of T -->
+    <circle cx="85" cy="65" r="2" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="88" cy="88" r="3" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="83" cy="115" r="2.5" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="90" cy="140" r="3.5" fill="#6bf7ff" filter="url(#nodeGlow)"/>
+    <circle cx="86" cy="165" r="2" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="89" cy="190" r="3" fill="#00f0ff" filter="url(#nodeGlow)"/>
+    <circle cx="84" cy="215" r="2.5" fill="#6bf7ff" filter="url(#nodeGlow)"/>
+    <circle cx="87" cy="240" r="3" fill="#00f0ff" filter="url(#nodeGlow)"/>
+
+    <!-- Scatter nodes (noise/ambient) -->
+    <circle cx="25" cy="130" r="1.5" fill="#0080ff" filter="url(#nodeGlow)" opacity="0.5"/>
+    <circle cx="155" cy="75" r="1.5" fill="#0080ff" filter="url(#nodeGlow)" opacity="0.4"/>
+    <circle cx="175" cy="170" r="1.2" fill="#0080ff" filter="url(#nodeGlow)" opacity="0.3"/>
+    <circle cx="50" cy="200" r="1.2" fill="#0080ff" filter="url(#nodeGlow)" opacity="0.35"/>
+    <circle cx="130" cy="120" r="1" fill="#0080ff" filter="url(#nodeGlow)" opacity="0.3"/>
+
+    <!-- Connection lines (horizontal bar) -->
+    <line x1="30" y1="45" x2="55" y2="42" stroke="#00f0ff" stroke-width="1" opacity="0.6"/>
+    <line x1="55" y1="42" x2="85" y2="38" stroke="#00f0ff" stroke-width="1" opacity="0.7"/>
+    <line x1="85" y1="38" x2="110" y2="44" stroke="#6bf7ff" stroke-width="1.2" opacity="0.8"/>
+    <line x1="110" y1="44" x2="140" y2="40" stroke="#00f0ff" stroke-width="1" opacity="0.7"/>
+    <line x1="140" y1="40" x2="165" y2="46" stroke="#00f0ff" stroke-width="0.8" opacity="0.5"/>
+    <line x1="165" y1="46" x2="190" y2="39" stroke="#6bf7ff" stroke-width="1" opacity="0.7"/>
+    <line x1="190" y1="39" x2="215" y2="43" stroke="#00f0ff" stroke-width="0.8" opacity="0.5"/>
+
+    <!-- Connection lines (vertical stem) -->
+    <line x1="85" y1="38" x2="85" y2="65" stroke="#00f0ff" stroke-width="1" opacity="0.5"/>
+    <line x1="85" y1="65" x2="88" y2="88" stroke="#00f0ff" stroke-width="1" opacity="0.6"/>
+    <line x1="88" y1="88" x2="83" y2="115" stroke="#00f0ff" stroke-width="1" opacity="0.7"/>
+    <line x1="83" y1="115" x2="90" y2="140" stroke="#6bf7ff" stroke-width="1.2" opacity="0.8"/>
+    <line x1="90" y1="140" x2="86" y2="165" stroke="#00f0ff" stroke-width="1" opacity="0.7"/>
+    <line x1="86" y1="165" x2="89" y2="190" stroke="#00f0ff" stroke-width="1" opacity="0.6"/>
+    <line x1="89" y1="190" x2="84" y2="215" stroke="#6bf7ff" stroke-width="1.2" opacity="0.7"/>
+    <line x1="84" y1="215" x2="87" y2="240" stroke="#00f0ff" stroke-width="0.8" opacity="0.5"/>
+
+    <!-- Ambient connections to scatter nodes -->
+    <line x1="55" y1="42" x2="25" y2="130" stroke="#0080ff" stroke-width="0.5" opacity="0.15"/>
+    <line x1="140" y1="40" x2="155" y2="75" stroke="#0080ff" stroke-width="0.5" opacity="0.15"/>
+    <line x1="190" y1="39" x2="175" y2="170" stroke="#0080ff" stroke-width="0.5" opacity="0.1"/>
+    <line x1="83" y1="115" x2="50" y2="200" stroke="#0080ff" stroke-width="0.5" opacity="0.1"/>
+    <line x1="90" y1="140" x2="130" y2="120" stroke="#0080ff" stroke-width="0.5" opacity="0.12"/>
+
+    <!-- Large glow nodes (centroids) -->
+    <circle cx="110" cy="44" r="12" fill="url(#glow1)" filter="url(#bigGlow)" opacity="0.3"/>
+    <circle cx="90" cy="140" r="14" fill="url(#glow2)" filter="url(#bigGlow)" opacity="0.25"/>
+    <circle cx="85" cy="38" r="8" fill="url(#glow3)" filter="url(#bigGlow)" opacity="0.2"/>
+  </g>
+
+  <!-- Wordmark "TITO" -->
+  <g transform="translate(280, 60)">
+    <text x="0" y="110" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="700" letter-spacing="12" fill="url(#wordGrad)">
+      TITO
+    </text>
+    <!-- Thin underline accent -->
+    <rect x="5" y="125" width="370" height="2" fill="#00f0ff" opacity="0.4" rx="1"/>
+    <!-- Tagline -->
+    <text x="5" y="152" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="300" letter-spacing="8" fill="#00f0ff" opacity="0.5">
+      THREAT IN · THREAT OUT
+    </text>
+  </g>
+</svg>

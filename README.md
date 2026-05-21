@@ -1,276 +1,188 @@
 <p align="center">
-  <img src="assets/logo.png" alt="TITO" width="400">
+  <img src="assets/logo-concept-1.svg" alt="TITO" width="600">
 </p>
-
-<h1 align="center">Threat In, Threat Out</h1>
 
 <p align="center"><strong>Automated threat modeling for modern development teams.</strong></p>
 
-[![CI](https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Leathal1/TITO?style=flat&color=blue)](https://github.com/Leathal1/TITO/releases)
-[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Threat Model](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml/badge.svg)](https://github.com/Leathal1/TITO/actions/workflows/tito-scan.yml)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-TITO%20Threat%20Model-blue?style=flat&logo=github)](https://github.com/marketplace/actions/tito-threat-model)
-[![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat&logo=docker)](https://ghcr.io/leathal1/tito)
-
-Single binary. Point at a repo. Get **attack path analysis**, **3D threat visualization**, **STRIDE-LM + MAESTRO classification**, and **MITRE ATT&CK mappings** — all in one scan.
-
 <p align="center">
-  <img src="docs/screenshots/3d-hero.png" alt="TITO 3D Threat Model Visualization" width="900">
+  <a href="https://github.com/Leathal1/TITO/actions/workflows/ci.yml"><img src="https://github.com/Leathal1/TITO/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Leathal1/TITO/releases"><img src="https://img.shields.io/github/v/release/Leathal1/TITO?style=flat&color=blue" alt="Release"></a>
+  <a href="https://github.com/Leathal1/TITO/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/marketplace/actions/tito-threat-model"><img src="https://img.shields.io/badge/Marketplace-TITO%20Threat%20Model-blue?style=flat&logo=github" alt="GitHub Marketplace"></a>
+  <a href="https://ghcr.io/leathal1/tito"><img src="https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat&logo=docker" alt="Docker"></a>
 </p>
 
 ---
 
-## Why TITO?
+## What is TITO?
 
-Every other threat modeling tool makes you draw diagrams by hand. TITO **reads your code** and builds the threat model for you — then chains findings into **realistic multi-step attack paths**.
+**TITO** (Threat In, Threat Out) is a single Go binary that reads your code and builds a complete threat model — no diagrams to draw, no configuration files to write.
 
-| Feature | TITO | Microsoft TMT | OWASP Threat Dragon | IriusRisk |
-|---------|:----:|:-------------:|:-------------------:|:---------:|
-| **STRIDE-LM** | Yes | STRIDE only | STRIDE only | STRIDE only |
-| **MAESTRO** (AI/Agent threats) | Yes | No | No | No |
-| **Attack Path Analysis** | Yes | No | No | No |
-| **3D Visualization** | Yes | No | No | No |
-| **SAST Integration** | Yes Semgrep | No | No | Limited |
-| **MITRE ATT&CK** | Yes | No | No | Limited |
-| **PR Threat Diffing** | Yes | No | No | No |
-| **Interactive Data Flow** | Yes D3.js + Three.js | Basic | Basic | Basic |
-| **CLI / CI/CD** | Yes Single binary | No GUI only | No Web only | No SaaS |
-| **Runs Anywhere** | Yes Mac/Linux/Windows | Windows only | Browser | Cloud |
+```bash
+# Scan any repo
+tito scan --repo https://github.com/your/app --maestro --mitre --3d --output threat-model.html
 
----
+# Open the interactive 3D visualization
+open threat-model.html
+```
 
-## AI Agent Security (MAESTRO Framework)
+**What you get:**
+- Assets and data flows discovered automatically from your code
+- STRIDE-LM + MAESTRO threat classification (including AI/agent threats)
+- MITRE ATT&CK technique mapping
+- Attack path analysis with kill chain narratives
+- Interactive 3D & 2D visualizations — presentation-ready
 
-TITO is the **only CLI threat modeling tool** that implements Cloud Security Alliance's MAESTRO framework for agentic AI systems.
-
-As AI agents ship to production with tool access (code execution, database queries, web browsing), traditional threat models miss entire attack classes.
-
-MAESTRO provides 7-layer coverage:
-
-| Layer | Threat Examples |
-|-------|-----------------|
-| **1. Foundation Models** | Prompt injection, jailbreaking, model extraction |
-| **2. Data & Knowledge** | RAG poisoning, embedding attacks, training data manipulation |
-| **3. Agent Frameworks** | LangChain/CrewAI exploits, memory corruption, state manipulation |
-| **4. Tooling & Integration** | MCP server attacks, API abuse, tool poisoning |
-| **5. Agent Communication** | Trust boundary violations, message spoofing, coordination attacks |
-| **6. Deployment & Infrastructure** | Container escapes, sandbox bypasses, resource exhaustion |
-| **7. Ecosystem & Governance** | Compliance gaps, accountability failures, liability exposure |
-
-Enable with `--maestro` flag. Every AI agent codebase scanned gets classified across all 7 layers automatically.
-
-**Why this matters:** Security teams are shipping AI agents without threat models. TITO gives you that visibility in one command.
+| TITO | Microsoft TMT | OWASP Threat Dragon | IriusRisk |
+|------|:-------------:|:-------------------:|:---------:|
+| **STRIDE-LM** (extended) | STRIDE only | STRIDE only | STRIDE only |
+| **MAESTRO** AI/Agent threats | ❌ | ❌ | ❌ |
+| **Attack paths** | ❌ | ❌ | ❌ |
+| **3D visualization** | ❌ | ❌ | ❌ |
+| **SAST integration** | ❌ | ❌ | Limited |
+| **MITRE ATT&CK** | ❌ | ❌ | Limited |
+| **PR threat diffing** | ❌ | ❌ | ❌ |
+| **CLI / CI/CD native** | GUI only | Web only | SaaS |
+| **Single binary, zero deps** | Windows only | ❌ | ❌ |
+| **Price** | **Free (OSS, MIT)** | Free | Free | $$$$ |
 
 ---
 
-## Who Uses TITO?
+## TITO Free vs TITO Pro
 
-**Security Engineers** scanning codebases for threat identification and attack path analysis
+| Feature | TITO Free | TITO Pro |
+|---------|:---------:|:--------:|
+| STRIDE-LM classification | ✅ | ✅ |
+| MAESTRO AI agent analysis | ✅ | ✅ |
+| MITRE ATT&CK mapping | ✅ | ✅ |
+| Attack path analysis | ✅ | ✅ |
+| 3D & 2D visualization | ✅ | ✅ |
+| Semgrep SAST integration | ✅ | ✅ |
+| PCI DSS compliance mapping | ✅ | ✅ |
+| PR threat diffing | ✅ | ✅ |
+| GitHub Action + GitLab CI | ✅ | ✅ |
+| **Multi-repo org scanning** | ❌ | ✅ |
+| **Cross-service attack paths** | ❌ | ✅ |
+| **Security drift detection** | ❌ | ✅ |
+| **SBOM → threat model** | ❌ | ✅ |
+| **Auto-remediation (PR-ready patches)** | ❌ | ✅ |
+| **LLM executive summaries** | ❌ | ✅ |
+| **Live CVE/NVD intelligence** | ❌ | ✅ |
 
-**DevSecOps Teams** integrating threat modeling into CI/CD pipelines without manual overhead
+**[Try TITO Pro free for 14 days →](https://tito.security/pro)** (no credit card required)
 
-**AI/Agent Developers** assessing security posture of agentic systems with MAESTRO framework
+```bash
+# Activate your trial
+tito-pro activate --trial
 
-**Compliance Teams** mapping threats to regulatory frameworks (PCI DSS, SOC 2, ISO 27001, HIPAA)
+# Then use Pro features:
+tito-pro org scan --org your-org --maestro        # Multi-repo scanning
+tito-pro drift --baseline main --current feature   # Security drift detection
+tito-pro sbom import sbom.json --enrich-cve        # SBOM → threat model
+tito-pro fix --threat TH-001                       # Auto-remediation
+```
 
-**AppSec Researchers** analyzing attack surfaces and multi-step exploit chains
+TITO Free is MIT licensed — all core features ship in the single binary, no gates, no license keys. TITO Pro adds the operational layer: continuous monitoring, organizational visibility, and executive reporting.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Install
+# Option 1: Go install
 go install github.com/Leathal1/TITO/v2/cmd/tito@latest
 
-# Scan a repository
-tito scan --repo https://github.com/your/app
+# Option 2: Docker
+docker run --rm -v "$(pwd):/workspace" ghcr.io/leathal1/tito:latest scan --repo /workspace --maestro --output /workspace/report.html
 
-# Full analysis with all frameworks
-tito scan \
-  --repo https://github.com/your/app \
-  --maestro \
-  --mitre \
-  --attack-paths \
-  --3d \
-  --output threat-model.html
-
-# Open the interactive 3D visualization
-open threat-model.html
+# Option 3: Download a binary
+# Grab the latest release for your platform from:
+# https://github.com/Leathal1/TITO/releases
 ```
 
+**First scan:**
+
+```bash
+tito scan --repo https://github.com/your/app --maestro --mitre --attack-paths --3d --output threat-model.html
 ```
-TITO Repository Scanner
-==================================================
 
-Cloning repository: https://github.com/your/app
+**Open the output —** `threat-model.html` in any browser.
 
-✓ Repository scanned successfully
-  Assets discovered: 655
-  Data flows: 5205
+---
 
-Analyzing code for security threats...
-✓ Total processed threats: 19
+## AI Agent Security (MAESTRO Framework)
 
-Running MAESTRO agentic AI threat analysis...
-✓ MAESTRO Classification complete
+TITO is the **only CLI tool** implementing Cloud Security Alliance's MAESTRO framework for agentic AI threat modeling.
 
-Enriching with MITRE ATT&CK mappings...
-✓ ATT&CK techniques mapped
+| Layer | Threat Examples |
+|-------|-----------------|
+| **1. Foundation Models** | Prompt injection, jailbreaking, model extraction |
+| **2. Data & Knowledge** | RAG poisoning, embedding attacks |
+| **3. Agent Frameworks** | LangChain/CrewAI exploits, memory corruption |
+| **4. Tooling & Integration** | MCP server attacks, tool poisoning |
+| **5. Agent Communication** | Trust boundary violations, message spoofing |
+| **6. Deployment & Infrastructure** | Container escapes, sandbox bypasses |
+| **7. Ecosystem & Governance** | Compliance gaps, liability exposure |
 
-Results Summary:
---------------------------------------------------
-  Critical threats: 8
-  High threats: 6
-  Medium threats: 3
-  Low threats: 2
-  Total affected assets: 655
-  Data flows analyzed: 5205
-```
+Enable with `--maestro`. As AI agents ship to production with tool access (code execution, DB queries, web browsing), traditional threat models miss entire attack classes.
 
 ---
 
 ## Features
 
-### Attack Path Analysis
-
-**Like BloodHound, but for application-layer threat models.**
-
-TITO chains individual findings into realistic multi-step attack paths — answering: *"If an attacker lands here, what's the worst-case path to crown jewels?"*
+### Attack Path Analysis (like BloodHound for app-layer)
 
 ```bash
 tito attack-paths --repo . --top 5 --3d --narrative
 ```
 
-Each path shows:
-- **Entry point** → intermediate steps → **crown jewel** (databases, secrets, admin APIs)
-- Chained MITRE ATT&CK techniques at each hop
-- Cumulative risk score across the kill chain
-- Human-readable **narrative** explaining the attack story
-
-Attack paths overlay directly onto the 3D visualization — red glowing trails showing exactly how an attacker would move through your system.
+Chains individual findings into multi-step attack paths — each shows entry point → intermediate steps → crown jewel, with MITRE ATT&CK techniques at every hop and a human-readable narrative.
 
 ### 3D Threat Visualization
 
-Interactive Three.js visualization with:
-- **Color-coded nodes** by risk severity (critical → low)
-- **Animated data flows** between components
-- **Trust boundaries** as translucent shells
-- **Attack path overlays** with glowing particle trails
-- **Click any node** for full threat details
-- **Dark theme** — designed for presentations
-- Export to screenshot
+Interactive Three.js visualization with PBR materials, atmospheric depth, refined colors, and responsive controls:
 
-<p align="center">
-  <img src="docs/screenshots/3d-viz.png" alt="TITO 3D Visualization with Controls" width="900">
-</p>
-
-Also generates **2D interactive diagrams** (D3.js) with the `--dataflow` flag.
+- Color-coded nodes by risk severity (critical → low)
+- Animated data flows with particle trails
+- Trust boundaries as translucent shells
+- Attack path overlays with path highlighting
+- Click any node for full threat details
+- Responsive — works on desktop, tablet, and mobile
+- Keyboard shortcuts: R (reset), L (labels), B (boundaries), P (particles), A (attack paths)
 
 ### PR Threat Diffing
-
-Run `tito diff` in CI to catch security regressions on every pull request:
 
 ```bash
 tito diff --repo . --base main --head feature-branch --format markdown
 ```
 
-Output:
-```markdown
-## TITO Threat Model Delta
-
-**Risk: INCREASED** (6.2 → 7.8) | Verdict: WARN
-
-### New Threats (2)
-- SQL Injection in /api/admin/users [CRITICAL]
-- Unauthenticated endpoint exposed [HIGH]
-```
-
-Exit codes for CI gates:
-- **0** = PASS — no new threats or risk decreased
-- **1** = WARN — new threats detected (non-critical)
-- **2** = FAIL — critical security regression
-
-See [docs/DIFF.md](docs/DIFF.md) for full documentation.
-
-### STRIDE-LM
-
-Extended STRIDE with **Lateral Movement** and **Malware** categories. Maps threats via keyword analysis, CWE IDs, and MITRE ATT&CK tactics.
-
-| Category | What it Catches |
-|----------|----------------|
-| **S**poofing | Authentication bypasses, identity issues |
-| **T**ampering | Data/code modification, integrity violations |
-| **R**epudiation | Missing audit trails, log gaps |
-| **I**nfo Disclosure | Data leaks, credential exposure, PII |
-| **D**enial of Service | Resource exhaustion, crash vectors |
-| **E**levation of Privilege | Authz bypasses, privilege escalation |
-| **L**ateral Movement | Internal pivoting, trust exploitation |
-| **M**alware | Supply chain attacks, code injection |
+| Exit Code | Meaning |
+|:---------:|---------|
+| **0** | PASS — no new threats or risk decreased |
+| **1** | WARN — new non-critical threats |
+| **2** | FAIL — critical security regression |
 
 ### Semgrep + MITRE ATT&CK
 
-- Runs **Semgrep** static analysis and maps findings to STRIDE-LM categories via CWE mappings
-- Every finding enriched with relevant **ATT&CK techniques** across all 12 tactics
-- Enable with `--semgrep` and `--mitre` flags
+Runs Semgrep static analysis and maps findings to STRIDE-LM categories via CWE. Every finding enriched with relevant ATT&CK techniques.
 
----
+### All Commands
 
-## Real World: JoonaPay Fintech Audit
-
-TITO scanned a production fintech payments platform:
-
-| Metric | Result |
-|--------|--------|
-| **Assets discovered** | 655 |
-| **Data flows mapped** | 5,205 |
-| **Threats identified** | 19 |
-| **Critical severity** | 8 |
-| **High severity** | 6 |
-| **Attack paths found** | 10 |
-| **Scan time** | ~45 seconds |
-
-Key findings included hardcoded credentials, unauthenticated payment APIs, and a 4-hop attack path from a public endpoint through message queues to the payment database.
-
-**Zero manual diagram drawing. Zero configuration files. Just `tito scan`.**
-
----
-
-## Production Ready
-
-- ✅ **Single binary** — No runtime dependencies (except optional Semgrep)
-- ✅ **Fast scans** — JoonaPay (655 assets, 5,205 flows) analyzed in ~45 seconds
-- ✅ **CI/CD native** — Exit codes, SARIF output, PR comment integration
-- ✅ **Docker images** — Pre-built for `amd64` and `arm64` architectures
-- ✅ **Offline capable** — Works in air-gapped environments
-- ✅ **Cross-platform** — macOS, Linux, Windows binaries via GoReleaser
-
----
-
-## All Features
-
-- Repository scanning & asset discovery
-- STRIDE-LM threat classification
-- MAESTRO agentic AI analysis
-- MITRE ATT&CK technique mapping
-- PCI DSS v4.0 compliance mapping
-- Application architecture detection
-- Attack path analysis with narratives
-- 2D & 3D data flow visualization
-- PR threat diffing
-- Semgrep integration
-- Compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST 800-53, HIPAA)
-- SARIF output for GitHub Security tab
+```
+tito scan           Scan a repository for threats and assets
+tito attack-paths   Generate attack path analysis
+tito diff           Compare threat models (PR diff)
+tito report         Generate threat report from scan results
+tito dashboard      Launch web dashboard
+tito compliance     Map threats to compliance frameworks
+tito status         Show system status
+```
 
 ---
 
 ## CI/CD Integration
 
-TITO integrates with every major CI/CD platform. Pick the method that fits your workflow:
-
-### GitHub Actions — Marketplace Action
+### GitHub Actions
 
 The simplest integration. Add to any workflow:
 
@@ -283,106 +195,13 @@ The simplest integration. Add to any workflow:
     fail-on: critical
 ```
 
-<details>
-<summary><b>Full workflow example with PR comments</b></summary>
+Also supports reusable workflows, Docker action, and PR threat diff workflows — see the [full docs](https://github.com/Leathal1/TITO#cicd-integration).
 
-```yaml
-name: TITO Threat Model
-on:
-  pull_request:
-    branches: [main]
+### Docker (Any CI)
 
-jobs:
-  threat-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: Leathal1/TITO@v2
-        id: tito
-        with:
-          maestro: true
-          mitre: true
-          attack-paths: true
-          sarif-output: true
-          fail-on: critical
-
-      - name: Comment on PR
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const total = '${{ steps.tito.outputs.threats-total }}';
-            const critical = '${{ steps.tito.outputs.threats-critical }}';
-            const high = '${{ steps.tito.outputs.threats-high }}';
-            const badge = '${{ steps.tito.outputs.badge-url }}';
-            const body = `## 🛡️ TITO Threat Model\n\n![badge](${badge})\n\n| Severity | Count |\n|---|---|\n| Critical | ${critical} |\n| High | ${high} |\n| **Total** | **${total}** |`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: threat-model
-          path: threat-model.html
-```
-
-</details>
-
-### GitHub Actions — Reusable Workflow
-
-Call from any repository without copying workflow files:
-
-```yaml
-jobs:
-  threat-model:
-    uses: Leathal1/TITO/.github/workflows/tito-reusable.yml@main
-    with:
-      maestro: true
-      mitre: true
-      sarif-output: true
-      fail-on: critical
-```
-
-### GitHub Actions — Docker (Fastest)
-
-Skip Go compilation entirely:
-
-```yaml
-- uses: Leathal1/TITO/.github/actions/docker@v2
-  with:
-    maestro: true
-    mitre: true
-```
-
-### GitHub Actions — PR Threat Diff
-
-Catch security regressions on every pull request:
-
-```yaml
-name: TITO PR Check
-on:
-  pull_request:
-    branches: [main]
-
-jobs:
-  threat-diff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: Leathal1/TITO@v2
-        with:
-          diff-base: ${{ github.base_ref }}
-          diff-head: ${{ github.head_ref }}
-          fail-on: critical
+```bash
+docker run --rm -v "$(pwd):/workspace" ghcr.io/leathal1/tito:latest \
+  scan --repo /workspace --maestro --mitre --output /workspace/report.html
 ```
 
 ### GitLab CI
@@ -392,58 +211,6 @@ include:
   - project: 'Leathal1/TITO'
     file: '.gitlab/tito-scan.gitlab-ci.yml'
     ref: main
-```
-
-See [GITLAB_CI.md](GITLAB_CI.md) for full documentation including MR diff templates.
-
-### Docker (Any CI)
-
-```bash
-docker run --rm -v "$(pwd):/workspace" ghcr.io/leathal1/tito:latest \
-  scan --repo /workspace --maestro --mitre --attack-paths --output /workspace/report.html
-```
-
-### Pre-commit Hook
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/Leathal1/TITO
-    rev: v2.1.0
-    hooks:
-      - id: tito-scan
-```
-
-Or install manually: `cp scripts/pre-commit-tito.sh .git/hooks/pre-commit`
-
-See [INSTALL.md](INSTALL.md) for setup details.
-
----
-
-## Badges
-
-Add a TITO threat model badge to your README:
-
-```markdown
-[![TITO Threat Model](https://img.shields.io/badge/TITO-threats%3A%200-brightgreen?style=flat)](https://github.com/Leathal1/TITO)
-```
-
-Generate a dynamic badge from scan results:
-
-```bash
-# After running a scan with --save
-./scripts/generate-badge.sh threatmodel.json
-```
-
-In GitHub Actions, the badge URL is available as the `badge-url` output:
-
-```yaml
-- uses: Leathal1/TITO@v2
-  id: tito
-  with:
-    maestro: true
-
-# Badge URL: ${{ steps.tito.outputs.badge-url }}
 ```
 
 ---
@@ -462,6 +229,8 @@ make docker-build   # Build Docker image
 make help           # Show all targets
 ```
 
+---
+
 ## Architecture
 
 ```
@@ -471,67 +240,18 @@ TITO Pipeline:
 │           │   │           │   │          │   │           │   │             │
 │ • Assets  │   │ • STRIDE  │   │ • ATT&CK │   │ • Attack  │   │ • 3D/Three  │
 │ • Flows   │   │ • MAESTRO │   │ • Semgrep│   │   Paths   │   │ • 2D/D3.js  │
-│ • Deps    │   │ • NVD/CVE │   │ • CWE    │   │ • Chains  │   │ • Reports   │
+│ • Deps    │   │ • CVE     │   │ • CWE    │   │ • Chains  │   │ • Reports   │
 └──────────┘   └───────────┘   └──────────┘   └───────────┘   └─────────────┘
 ```
 
-## All Commands
-
-```
-tito scan           Scan a repository for threats and assets
-tito attack-paths   Generate attack path analysis and kill chain visualization
-tito diff           Compare threat models between two scans (PR diff)
-tito report         Generate threat report from scan results
-tito serve          Serve a TITO report or diagram in the browser
-tito status         Show TITO system status
-tito semgrep        Manage Semgrep dependency (status/install/uninstall)
-tito dashboard      Start the web dashboard
-tito api            Start the TITO API server
-tito compliance     Map threats to compliance frameworks (PCI DSS, SOC 2, ISO 27001, NIST, HIPAA)
-```
-
 ---
-
-## Enterprise Support & TITO Pro
-
-TITO is open source (MIT license). For enterprise deployments, continuous monitoring, or organizational-scale scanning, **TITO Pro** is available with premium features:
-
-- **Multi-repo organization scanning** with cross-service attack paths
-- **Security drift detection** — track threat model changes over time
-- **SBOM → threat model** — CycloneDX/SPDX import
-- **Auto-remediation** — PR-ready code patches
-- **Executive summaries** — LLM-generated board-ready reports
-- **Live CVE/NVD intelligence** — real-time vulnerability enrichment
-
-### Contact
-
-📧 **Email:** [steven.leath@gmail.com](mailto:steven.leath@gmail.com)  
-🐦 **Twitter:** [@gorillainfosec](https://x.com/gorillainfosec)  
-💼 **LinkedIn:** [Steven Leath](https://lnkd.in/gijeZ7nJ)
-
-**Available for:**
-- Custom MAESTRO rule development
-- On-premise deployment consulting
-- Integration with enterprise SIEM/SOAR platforms
-- Security architecture advisory
-- Training & workshops
-
----
-
-## Contributing
-
-PRs welcome. Run `make test && make lint` before submitting.
 
 ## License
 
-MIT
+MIT — free to use, modify, and distribute. TITO Pro is a separate commercial product with additional enterprise features.
 
 ---
 
 <p align="center">
   <i>Built by a security engineer for security engineers. Open source. Production-ready.</i>
-</p>
-
-<p align="center">
-  <i>"The best defense is built by those who truly understand offense." — <a href="https://x.com/gorillainfosec">@gorillainfosec</a></i>
 </p>

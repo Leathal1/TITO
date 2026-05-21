@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+  <defs>
+    <linearGradient id="lay1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0a4a6e"/>
+      <stop offset="100%" stop-color="#0d6a9a"/>
+    </linearGradient>
+    <linearGradient id="lay2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d6a9a"/>
+      <stop offset="100%" stop-color="#108ac6"/>
+    </linearGradient>
+    <linearGradient id="lay3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#108ac6"/>
+      <stop offset="100%" stop-color="#14aae8"/>
+    </linearGradient>
+    <linearGradient id="lay4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0a3a5a"/>
+      <stop offset="100%" stop-color="#0d5a7a"/>
+    </linearGradient>
+    <linearGradient id="lay5" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#085a4a"/>
+      <stop offset="100%" stop-color="#0a8a6a"/>
+    </linearGradient>
+    <linearGradient id="lay6" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0a8a6a"/>
+      <stop offset="100%" stop-color="#0cba8a"/>
+    </linearGradient>
+    <linearGradient id="lay7" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d5a7a"/>
+      <stop offset="100%" stop-color="#108ac6"/>
+    </linearGradient>
+    <linearGradient id="lay8" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14aae8"/>
+      <stop offset="100%" stop-color="#0e7aae"/>
+    </linearGradient>
+    <linearGradient id="lay9" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0a4a6e"/>
+      <stop offset="100%" stop-color="#108ac6"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0cba8a"/>
+      <stop offset="100%" stop-color="#08a078"/>
+    </linearGradient>
+    <linearGradient id="wordGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60d0ff"/>
+      <stop offset="50%" stop-color="#30e0c0"/>
+      <stop offset="100%" stop-color="#10d0a0"/>
+    </linearGradient>
+    <filter id="boundaryGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="wordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#80d8ff"/>
+      <stop offset="50%" stop-color="#50e8d0"/>
+      <stop offset="100%" stop-color="#30d8b0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="300" fill="#0a0e27" rx="4"/>
+
+  <!-- Subtle concentric circles in background -->
+  <g fill="none" stroke="#142c4a" stroke-width="0.5" opacity="0.15">
+    <circle cx="155" cy="150" r="120"/>
+    <circle cx="155" cy="150" r="90"/>
+    <circle cx="155" cy="150" r="60"/>
+  </g>
+
+  <!-- Icon group - Trust Boundary T (layered rectangles) -->
+  <g transform="translate(35, 30)">
+
+    <!-- === Horizontal bar of T (top) - 4+ interlocking layers === -->
+
+    <!-- Back layer (largest) -->
+    <rect x="15" y="20" width="250" height="18" rx="2" fill="url(#lay4)" opacity="0.5" stroke="#0d5a7a" stroke-width="0.5"/>
+
+    <!-- Layer 4 - offset right/down -->
+    <rect x="20" y="22" width="240" height="16" rx="2" fill="url(#lay1)" opacity="0.6" stroke="#0d6a9a" stroke-width="0.5"/>
+
+    <!-- Layer 3 - offset left/up -->
+    <rect x="25" y="25" width="230" height="14" rx="2" fill="url(#lay2)" opacity="0.75" stroke="#108ac6" stroke-width="0.5"/>
+
+    <!-- Layer 2 - offset right/up -->
+    <rect x="30" y="28" width="220" height="12" rx="2" fill="url(#lay3)" opacity="0.85" stroke="#14aae8" stroke-width="0.5"/>
+
+    <!-- Layer 1 (innermost/top) -->
+    <rect x="35" y="31" width="210" height="8" rx="2" fill="url(#lay8)" opacity="0.9" stroke="#14aae8" stroke-width="0.5" filter="url(#boundaryGlow)"/>
+
+    <!-- Emerald accent strip on top bar -->
+    <rect x="35" y="31" width="210" height="2" rx="1" fill="url(#emerald)" opacity="0.6"/>
+
+    <!-- === Vertical stem of T - 4+ interlocking layers === -->
+
+    <!-- Back layer -->
+    <rect x="95" y="40" width="18" height="230" rx="2" fill="url(#lay4)" opacity="0.5" stroke="#0d5a7a" stroke-width="0.5"/>
+
+    <!-- Layer 4 -->
+    <rect x="98" y="42" width="16" height="225" rx="2" fill="url(#lay1)" opacity="0.6" stroke="#0d6a9a" stroke-width="0.5"/>
+
+    <!-- Layer 3 -->
+    <rect x="100" y="45" width="14" height="220" rx="2" fill="url(#lay2)" opacity="0.75" stroke="#108ac6" stroke-width="0.5"/>
+
+    <!-- Layer 2 -->
+    <rect x="102" y="48" width="12" height="215" rx="2" fill="url(#lay7)" opacity="0.85" stroke="#108ac6" stroke-width="0.5"/>
+
+    <!-- Layer 1 (innermost) -->
+    <rect x="104" y="52" width="8" height="208" rx="2" fill="url(#lay3)" opacity="0.9" stroke="#14aae8" stroke-width="0.5" filter="url(#boundaryGlow)"/>
+
+    <!-- Emerald accent strip on stem -->
+    <rect x="104" y="52" width="2" height="208" rx="1" fill="url(#emerald)" opacity="0.6"/>
+
+    <!-- === Intersection bridge (connecting bar and stem) === -->
+
+    <!-- Back bridge -->
+    <rect x="75" y="26" width="20" height="22" rx="1" fill="url(#lay4)" opacity="0.4" stroke="#0d5a7a" stroke-width="0.3"/>
+
+    <!-- Mid bridge -->
+    <rect x="80" y="30" width="18" height="18" rx="1" fill="url(#lay2)" opacity="0.6" stroke="#108ac6" stroke-width="0.3"/>
+
+    <!-- Front bridge -->
+    <rect x="82" y="34" width="16" height="14" rx="1" fill="url(#lay8)" opacity="0.8" stroke="#14aae8" stroke-width="0.3"/>
+
+    <!-- Emerald accent -->
+    <rect x="82" y="34" width="16" height="2" rx="1" fill="url(#emerald)" opacity="0.5"/>
+
+    <!-- Trust boundary arrows (↔) showing defense layers -->
+    <g opacity="0.3" fill="none" stroke="#30e0c0" stroke-width="0.8">
+      <!-- Horizontal bar arrows -->
+      <line x1="10" y1="16" x2="10" y2="42"/>
+      <line x1="10" y1="16" x2="14" y2="19"/>
+      <line x1="10" y1="16" x2="14" y2="13"/>
+      <line x1="10" y1="42" x2="14" y2="39"/>
+      <line x1="10" y1="42" x2="14" y2="45"/>
+
+      <line x1="270" y1="16" x2="270" y2="42"/>
+      <line x1="270" y1="16" x2="266" y2="19"/>
+      <line x1="270" y1="16" x2="266" y2="13"/>
+      <line x1="270" y1="42" x2="266" y2="39"/>
+      <line x1="270" y1="42" x2="266" y2="45"/>
+
+      <!-- Stem arrows -->
+      <line x1="90" y1="272" x2="120" y2="272"/>
+      <line x1="90" y1="272" x2="93" y2="268"/>
+      <line x1="90" y1="272" x2="93" y2="276"/>
+      <line x1="120" y1="272" x2="117" y2="268"/>
+      <line x1="120" y1="272" x2="117" y2="276"/>
+    </g>
+  </g>
+
+  <!-- Wordmark "TITO" -->
+  <g transform="translate(280, 60)">
+    <text x="0" y="110" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="120" font-weight="700" letter-spacing="12" fill="url(#wordGrad)">
+      TITO
+    </text>
+    <!-- Dual underline - layered like the icon -->
+    <rect x="5" y="122" width="370" height="3" rx="1" fill="#0d6a9a" opacity="0.5"/>
+    <rect x="8" y="125" width="364" height="2" rx="1" fill="#30e0c0" opacity="0.4"/>
+    <!-- Tagline -->
+    <text x="5" y="152" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="300" letter-spacing="8" fill="#30e0c0" opacity="0.5">
+      THREAT IN · THREAT OUT
+    </text>
+  </g>
+</svg>
